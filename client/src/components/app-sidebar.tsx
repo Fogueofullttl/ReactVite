@@ -33,7 +33,7 @@ const mockUser = {
   email: "invitado@example.com",
   role: "publico" as UserRole,
   memberNumber: "PRTTM-000000",
-  membershipStatus: "expired" as const,
+  membershipStatus: "expired" as "active" | "expired" | "pending",
   photoUrl: null,
 };
 

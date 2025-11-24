@@ -16,8 +16,17 @@ import PlayerDashboard from "@/pages/player-dashboard";
 import Profile from "@/pages/profile";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import MyMatches from "@/pages/my-matches";
 import ArbitroDashboard from "@/pages/arbitro/dashboard";
+import ArbitroMatches from "@/pages/arbitro/matches";
 import MatchScoring from "@/pages/arbitro/match-scoring";
+import AdminDashboard from "@/pages/admin/dashboard";
+import AdminUsers from "@/pages/admin/users";
+import AdminRegistrations from "@/pages/admin/registrations";
+import OwnerDashboard from "@/pages/owner/dashboard";
+import OwnerAnalytics from "@/pages/owner/analytics";
+import OwnerUsers from "@/pages/owner/users";
+import OwnerSettings from "@/pages/owner/settings";
 
 function Router() {
   return (
@@ -30,8 +39,17 @@ function Router() {
       <Route path="/profile" component={Profile} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/my-matches" component={MyMatches} />
       <Route path="/arbitro" component={ArbitroDashboard} />
+      <Route path="/arbitro/matches" component={ArbitroMatches} />
       <Route path="/arbitro/match/:matchId" component={MatchScoring} />
+      <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin/users" component={AdminUsers} />
+      <Route path="/admin/registrations" component={AdminRegistrations} />
+      <Route path="/owner" component={OwnerDashboard} />
+      <Route path="/owner/analytics" component={OwnerAnalytics} />
+      <Route path="/owner/users" component={OwnerUsers} />
+      <Route path="/owner/settings" component={OwnerSettings} />
       <Route component={NotFound} />
     </Switch>
   );
