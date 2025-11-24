@@ -147,36 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/matches/:id", async (req, res) => {
-    try {
-      const match = await storage.getMatch(req.params.id);
-      if (!match) {
-        return res.status(404).json({ error: "Match not found" });
-      }
-
-      // Populate match with player and tournament details
-      const [player1, player2, player1Partner, player2Partner, tournament] = await Promise.all([
-        match.player1Id ? storage.getUser(match.player1Id) : Promise.resolve(undefined),
-        match.player2Id ? storage.getUser(match.player2Id) : Promise.resolve(undefined),
-        match.player1PartnerId ? storage.getUser(match.player1PartnerId) : Promise.resolve(undefined),
-        match.player2PartnerId ? storage.getUser(match.player2PartnerId) : Promise.resolve(undefined),
-        storage.getTournament(match.tournamentId),
-      ]);
-
-      res.json({
-        ...match,
-        player1,
-        player2,
-        player1Partner,
-        player2Partner,
-        tournament,
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch match" });
-    }
-  });
-
-  // Get matches for arbitro
+  // Get matches for arbitro - MUST BE BEFORE /api/matches/:id
   app.get("/api/matches/arbitro", async (req, res) => {
     try {
       const allMatches = await storage.getAllMatches();
@@ -206,6 +177,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(matchesWithDetails);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch matches" });
+    }
+  });
+
+  app.get("/api/matches/:id", async (req, res) => {
+    try {
+      const match = await storage.getMatch(req.params.id);
+      if (!match) {
+        return res.status(404).json({ error: "Match not found" });
+      }
+
+      // Populate match with player and tournament details
+      const [player1, player2, player1Partner, player2Partner, tournament] = await Promise.all([
+        match.player1Id ? storage.getUser(match.player1Id) : Promise.resolve(undefined),
+        match.player2Id ? storage.getUser(match.player2Id) : Promise.resolve(undefined),
+        match.player1PartnerId ? storage.getUser(match.player1PartnerId) : Promise.resolve(undefined),
+        match.player2PartnerId ? storage.getUser(match.player2PartnerId) : Promise.resolve(undefined),
+        storage.getTournament(match.tournamentId),
+      ]);
+
+      res.json({
+        ...match,
+        player1,
+        player2,
+        player1Partner,
+        player2Partner,
+        tournament,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch match" });
     }
   });
 
