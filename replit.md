@@ -368,3 +368,12 @@ npm run dev
   - ✅ Stat cards con gradiente azul (#1e3a8a → #3b82f6)
   - ✅ Cards de partidos en grid responsive con hover effects
   - ✅ Badges con colores específicos del diseño FPTM
+- **24 nov 2025 21:48** - Página de torneos actualizada con diseño Stadium Compete:
+  - ✅ Lista vertical de torneos (inspirado en Stadium Compete)
+  - ✅ Badges de estado con colores específicos (verde/azul/amarillo/gris)
+  - ✅ Información organizada: nombre, fecha/hora, sede, categoría, jugadores
+  - ✅ Botones de acción: DRAWS, JUGADORES, INSCRIBIRSE, VER DETALLES
+  - ✅ Tabs con contadores dinámicos
+  - ✅ Barra de búsqueda destacada
+  - ✅ Corregida lógica de filtrado para contadores precisos
+  - ✅ Responsive design con breakpoints apropiados
