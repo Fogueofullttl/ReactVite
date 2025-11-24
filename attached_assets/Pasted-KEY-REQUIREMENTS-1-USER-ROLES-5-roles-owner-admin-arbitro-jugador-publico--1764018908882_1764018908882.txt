@@ -1,0 +1,57 @@
+KEY REQUIREMENTS:
+
+1. **USER ROLES:**
+   - 5 roles: owner, admin, arbitro, jugador, publico
+   - Role-based routing and UI visibility
+   - Permission checks on all API endpoints
+
+2. **CRITICAL WORKFLOWS:**
+   - User registration with auto-generated member number (PRTTM-XXXXXX)
+   - Membership validation before tournament registration
+   - Tournament draw generation (automatic by rating or manual)
+   - Match result entry with BIRTH YEAR VALIDATION (4 digits)
+   - All players must validate before result is confirmed
+   - Automatic rating calculation and ranking updates
+
+3. **BIRTH YEAR VALIDATION (MOST IMPORTANT):**
+   - When referee enters result, show validation form
+   - Each player enters their birth year (4 digits)
+   - System validates against user.profile.birthYear
+   - Real-time feedback (✓ verified or ✗ incorrect)
+   - For doubles: all 4 players must validate
+   - Only after all validations → "Confirm Result" button appears
+
+4. **DATABASE (Firestore):**
+   Collections: users, tournaments, registrations, draws, matches, rankings, payments, notifications, settings
+
+5. **AUTHENTICATION:**
+   - Firebase Auth with email/password
+   - Store additional profile data in Firestore users collection
+   - Generate unique member number on registration
+
+6. **PAYMENT SYSTEM:**
+   - 5-character ATH Móvil verification code
+   - Manual admin verification
+   - Update membership status to 'active' after verification
+
+7. **UI/UX:**
+   - Clean, modern design with Tailwind CSS
+   - Responsive (mobile-friendly)
+   - Different navigation/dashboard per role
+   - Public pages accessible without login
+
+8. **RATING SYSTEM:**
+   - Configurable formula in settings collection
+   - Base points: Win +15, Loss -10
+   - Set difference bonuses: 3-0 (+5), 3-1 (+3), 3-2 (+1)
+   - Round bonuses: Final (+100), Semi (+50), Quarter (+25)
+   - Auto-recalculate on match completion
+
+Please implement Phase 1 (Core) first:
+- Firebase setup
+- User registration/login
+- Role-based access control
+- Basic tournament CRUD
+- User profile management
+
+Use the Firebase secrets already configured in Replit Secrets.

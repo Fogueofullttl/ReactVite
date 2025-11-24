@@ -4,7 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums
-export const userRoleEnum = pgEnum("user_role", ["owner", "admin", "referee", "player", "public"]);
+export const userRoleEnum = pgEnum("user_role", ["owner", "admin", "arbitro", "jugador", "publico"]);
 export const tournamentTypeEnum = pgEnum("tournament_type", ["singles", "doubles"]);
 export const genderCategoryEnum = pgEnum("gender_category", ["male", "female", "mixed"]);
 export const tournamentStatusEnum = pgEnum("tournament_status", ["upcoming", "registration_open", "in_progress", "completed"]);
@@ -22,7 +22,7 @@ export const users = pgTable("users", {
   club: text("club"),
   photoUrl: text("photo_url"),
   memberNumber: varchar("member_number", { length: 15 }).notNull().unique(),
-  role: userRoleEnum("role").notNull().default("player"),
+  role: userRoleEnum("role").notNull().default("jugador"),
   membershipStatus: membershipStatusEnum("membership_status").notNull().default("pending"),
   membershipExpiresAt: timestamp("membership_expires_at"),
   rating: integer("rating").notNull().default(1000),
@@ -141,7 +141,7 @@ export type InsertRatingHistory = z.infer<typeof insertRatingHistorySchema>;
 export type RatingHistory = typeof ratingHistory.$inferSelect;
 
 // Enums for frontend use
-export type UserRole = "owner" | "admin" | "referee" | "player" | "public";
+export type UserRole = "owner" | "admin" | "arbitro" | "jugador" | "publico";
 export type TournamentType = "singles" | "doubles";
 export type GenderCategory = "male" | "female" | "mixed";
 export type TournamentStatus = "upcoming" | "registration_open" | "in_progress" | "completed";

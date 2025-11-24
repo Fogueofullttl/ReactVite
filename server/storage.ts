@@ -276,7 +276,7 @@ export class MemStorage implements IStorage {
   // Rankings
   async getTopPlayers(limit: number = 100): Promise<User[]> {
     return Array.from(this.users.values())
-      .filter((user) => user.role === "player")
+      .filter((user) => user.role === "jugador")
       .sort((a, b) => b.rating - a.rating)
       .slice(0, limit);
   }

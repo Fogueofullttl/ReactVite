@@ -31,7 +31,7 @@ import type { UserRole } from "@shared/schema";
 const mockUser = {
   name: "Usuario Invitado",
   email: "invitado@example.com",
-  role: "public" as UserRole,
+  role: "publico" as UserRole,
   memberNumber: "PRTTM-000000",
   membershipStatus: "expired" as const,
   photoUrl: null,
@@ -40,35 +40,35 @@ const mockUser = {
 const roleIcons = {
   owner: Shield,
   admin: Shield,
-  referee: Gavel,
-  player: User,
-  public: User,
+  arbitro: Gavel,
+  jugador: User,
+  publico: User,
 };
 
 const roleLabels: Record<UserRole, string> = {
   owner: "Propietario",
   admin: "Administrador",
-  referee: "Árbitro",
-  player: "Jugador",
-  public: "Público",
+  arbitro: "Árbitro",
+  jugador: "Jugador",
+  publico: "Público",
 };
 
 const menuItemsByRole: Record<UserRole, Array<{ title: string; url: string; icon: any }>> = {
-  public: [
+  publico: [
     { title: "Inicio", url: "/", icon: Home },
     { title: "Torneos", url: "/tournaments", icon: Trophy },
     { title: "Rankings", url: "/rankings", icon: TrendingUp },
   ],
-  player: [
+  jugador: [
     { title: "Panel", url: "/dashboard", icon: Home },
     { title: "Torneos", url: "/tournaments", icon: Trophy },
     { title: "Mis Partidos", url: "/my-matches", icon: Calendar },
     { title: "Rankings", url: "/rankings", icon: TrendingUp },
     { title: "Perfil", url: "/profile", icon: User },
   ],
-  referee: [
-    { title: "Panel", url: "/referee", icon: Home },
-    { title: "Partidos Asignados", url: "/referee/matches", icon: Gavel },
+  arbitro: [
+    { title: "Panel", url: "/arbitro", icon: Home },
+    { title: "Partidos Asignados", url: "/arbitro/matches", icon: Gavel },
     { title: "Torneos", url: "/tournaments", icon: Trophy },
     { title: "Rankings", url: "/rankings", icon: TrendingUp },
   ],
@@ -90,8 +90,8 @@ const menuItemsByRole: Record<UserRole, Array<{ title: string; url: string; icon
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const items = menuItemsByRole[mockUser.role];
-  const RoleIcon = roleIcons[mockUser.role];
+  const items = menuItemsByRole[mockUser.role] || menuItemsByRole.publico;
+  const RoleIcon = roleIcons[mockUser.role] || User;
 
   const getInitials = (name: string) => {
     return name
@@ -129,8 +129,8 @@ export function AppSidebar() {
             <Trophy className="h-6 w-6" />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">Tenis de Mesa PR</span>
-            <span className="text-xs text-muted-foreground">Sistema de Torneos</span>
+            <span className="text-sm font-semibold">FPTM</span>
+            <span className="text-xs text-muted-foreground">Federación PR</span>
           </div>
         </div>
       </SidebarHeader>
