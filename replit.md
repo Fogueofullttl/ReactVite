@@ -362,3 +362,9 @@ npm run dev
   - ✅ APIs y storage correctamente estructurados
   - ✅ Test E2E pasó exitosamente
   - ⚠️ Nota: Para producción, agregar autenticación y filtrado por árbitro
+- **24 nov 2025 21:45** - Dashboard actualizado con estilo del mockup:
+  - ✅ Aplicado diseño visual del mockup FPRTM
+  - ✅ Corregido patrón Button asChild (evitar anidar interactive elements)
+  - ✅ Stat cards con gradiente azul (#1e3a8a → #3b82f6)
+  - ✅ Cards de partidos en grid responsive con hover effects
+  - ✅ Badges con colores específicos del diseño FPTM

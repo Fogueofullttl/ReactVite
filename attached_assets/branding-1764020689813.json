@@ -1,0 +1,101 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "Inter",
+      "role": "body"
+    }
+  ],
+  "colors": {
+    "primary": "#040D2E",
+    "accent": "#1C50AF",
+    "background": "#FFFFFF",
+    "textPrimary": "#153470",
+    "link": "#153470"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Inter",
+      "heading": "Inter"
+    },
+    "fontStacks": {
+      "heading": [
+        "Inter",
+        "sans-serif"
+      ],
+      "body": [
+        "Inter",
+        "sans-serif"
+      ],
+      "paragraph": [
+        "Inter",
+        "sans-serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "32px",
+      "h2": "28px",
+      "body": "13px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 8,
+    "borderRadius": "5px"
+  },
+  "components": {
+    "input": {
+      "borderColor": "#CCCCCC",
+      "borderRadius": "5px"
+    },
+    "buttonPrimary": {
+      "background": "#1C50AF",
+      "textColor": "#FFFFFF",
+      "borderRadius": "5px",
+      "shadow": "none"
+    },
+    "buttonSecondary": {
+      "background": "transparent",
+      "textColor": "#FFFFFF",
+      "borderRadius": "5px",
+      "shadow": "none"
+    }
+  },
+  "images": {
+    "logo": "https://stadiumcompete.com/public/stadium-logo-text-white.png",
+    "favicon": "https://stadiumcompete.com/public/stadium-tt-favicon.png",
+    "ogImage": "https://stadiumcompete.com/public/stadium-landing.png"
+  },
+  "__framework_hints": [],
+  "__llm_logo_reasoning": {
+    "selectedIndex": 0,
+    "reasoning": "Logo #0 matches the brand name 'STADIUM' and is located in the header, linking to the homepage, making it the main brand logo.",
+    "confidence": 0.95
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": 0,
+      "text": "Try it today →",
+      "reasoning": "Button #0 has vibrant blue color (#1C50AF) and action-oriented text 'Try it today →', making it the primary CTA."
+    },
+    "secondary": {
+      "index": 9,
+      "text": "Learn More",
+      "reasoning": "Button #9 has a transparent background, which is less prominent compared to the primary button, and it is from a different color group (#1C50AF for primary vs transparent for secondary)."
+    },
+    "confidence": 0.95
+  },
+  "personality": {
+    "tone": "modern",
+    "energy": "medium",
+    "targetAudience": "sports enthusiasts and competitive players"
+  },
+  "designSystem": {
+    "framework": "unknown",
+    "componentLibrary": null
+  },
+  "confidence": {
+    "buttons": 0.95,
+    "colors": 0.9,
+    "overall": 0.925
+  }
+}
