@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,98 +8,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, MapPin, Trophy, Users, Search, Plus } from "lucide-react";
 import { Link } from "wouter";
+import type { Tournament } from "@shared/schema";
 
 export default function Tournaments() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
-  const tournaments = [
-    {
-      id: "1",
-      name: "Puerto Rico Open 2025",
-      type: "singles",
-      genderCategory: "mixed",
-      status: "registration_open",
-      startDate: "2025-01-15",
-      endDate: "2025-01-17",
-      venue: "Centro de Convenciones, San Juan",
-      entryFee: 50,
-      participants: 32,
-      maxParticipants: 64,
-      registrationDeadline: "2025-01-10",
-    },
-    {
-      id: "2",
-      name: "Doubles Championship",
-      type: "doubles",
-      genderCategory: "mixed",
-      status: "registration_open",
-      startDate: "2025-02-05",
-      endDate: "2025-02-06",
-      venue: "Coliseo Municipal, Ponce",
-      entryFee: 40,
-      participants: 16,
-      maxParticipants: 32,
-      registrationDeadline: "2025-02-01",
-    },
-    {
-      id: "3",
-      name: "Women's Invitational",
-      type: "singles",
-      genderCategory: "female",
-      status: "upcoming",
-      startDate: "2025-02-20",
-      endDate: "2025-02-20",
-      venue: "Club Deportivo, Mayagüez",
-      entryFee: 30,
-      participants: 12,
-      maxParticipants: 24,
-      registrationDeadline: "2025-02-15",
-    },
-    {
-      id: "4",
-      name: "Men's Summer Classic",
-      type: "singles",
-      genderCategory: "male",
-      status: "upcoming",
-      startDate: "2025-03-10",
-      endDate: "2025-03-12",
-      venue: "Arena Deportiva, Caguas",
-      entryFee: 50,
-      participants: 0,
-      maxParticipants: 48,
-      registrationDeadline: "2025-03-05",
-    },
-    {
-      id: "5",
-      name: "Island Champions Cup",
-      type: "singles",
-      genderCategory: "mixed",
-      status: "in_progress",
-      startDate: "2024-12-20",
-      endDate: "2024-12-22",
-      venue: "Estadio Nacional, San Juan",
-      entryFee: 60,
-      participants: 64,
-      maxParticipants: 64,
-      registrationDeadline: "2024-12-15",
-    },
-    {
-      id: "6",
-      name: "Holiday Mixed Doubles",
-      type: "doubles",
-      genderCategory: "mixed",
-      status: "completed",
-      startDate: "2024-12-01",
-      endDate: "2024-12-02",
-      venue: "Centro Comunitario, Arecibo",
-      entryFee: 40,
-      participants: 24,
-      maxParticipants: 24,
-      registrationDeadline: "2024-11-25",
-    },
-  ];
+  const { data: tournaments = [], isLoading } = useQuery<Tournament[]>({
+    queryKey: ["/api/tournaments"],
+  });
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -118,205 +37,290 @@ export default function Tournaments() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case "registration_open":
-        return "Registration Open";
+        return "Inscripción Abierta";
       case "upcoming":
-        return "Upcoming";
+        return "Próximamente";
       case "in_progress":
-        return "In Progress";
+        return "En Progreso";
       case "completed":
-        return "Completed";
+        return "Finalizado";
       default:
         return status;
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+  const getTypeLabel = (type: string) => {
+    return type === "singles" ? "Individual" : "Dobles";
   };
 
-  const filteredTournaments = tournaments.filter((t) => {
-    const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.venue.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = filterType === "all" || t.type === filterType;
-    const matchesStatus = filterStatus === "all" || t.status === filterStatus;
+  const getGenderLabel = (gender: string) => {
+    switch (gender) {
+      case "male":
+        return "Masculino";
+      case "female":
+        return "Femenino";
+      case "mixed":
+        return "Mixto";
+      default:
+        return gender;
+    }
+  };
+
+  const filteredTournaments = tournaments.filter((tournament) => {
+    const matchesSearch = tournament.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType = filterType === "all" || tournament.type === filterType;
+    const matchesStatus = filterStatus === "all" || tournament.status === filterStatus;
     return matchesSearch && matchesType && matchesStatus;
   });
 
-  const groupedTournaments = {
+  const groupedByStatus = {
     registration_open: filteredTournaments.filter((t) => t.status === "registration_open"),
     upcoming: filteredTournaments.filter((t) => t.status === "upcoming"),
     in_progress: filteredTournaments.filter((t) => t.status === "in_progress"),
     completed: filteredTournaments.filter((t) => t.status === "completed"),
   };
 
-  const TournamentCard = ({ tournament }: { tournament: typeof tournaments[0] }) => (
-    <Card className="hover-elevate" data-testid={`card-tournament-${tournament.id}`}>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2 flex-wrap">
-          <div className="flex-1 min-w-0">
-            <CardTitle className="mb-1 truncate">{tournament.name}</CardTitle>
-            <CardDescription className="flex items-center gap-1">
-              <Calendar className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">
-                {formatDate(tournament.startDate)}
-                {tournament.endDate !== tournament.startDate && ` - ${formatDate(tournament.endDate)}`}
-              </span>
-            </CardDescription>
-          </div>
-          <Badge variant={getStatusBadgeVariant(tournament.status)} className="flex-shrink-0">
-            {getStatusLabel(tournament.status)}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="space-y-2 text-sm">
-          <div className="flex items-start gap-2">
-            <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5 text-muted-foreground" />
-            <span className="text-muted-foreground">{tournament.venue}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-            <span className="text-muted-foreground">
-              {tournament.participants}/{tournament.maxParticipants} participants
-            </span>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="outline" className="text-xs capitalize">
-            {tournament.type}
-          </Badge>
-          <Badge variant="outline" className="text-xs capitalize">
-            {tournament.genderCategory}
-          </Badge>
-          <Badge variant="outline" className="text-xs">
-            ${tournament.entryFee}
-          </Badge>
-        </div>
-        <Button className="w-full" asChild data-testid={`button-view-tournament-${tournament.id}`}>
-          <Link href={`/tournaments/${tournament.id}`}>View Details</Link>
-        </Button>
-      </CardContent>
-    </Card>
-  );
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-lg text-muted-foreground">Cargando torneos...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Tournaments</h1>
-            <p className="text-muted-foreground">Browse and register for upcoming competitions</p>
-          </div>
-          <Button data-testid="button-create-tournament">
-            <Plus className="h-4 w-4 mr-2" />
-            Create Tournament
-          </Button>
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold" data-testid="text-page-title">Torneos</h1>
+          <p className="text-muted-foreground">
+            Explora y regístrate en torneos de tenis de mesa
+          </p>
         </div>
+        <Button asChild data-testid="button-create-tournament">
+          <Link href="/tournaments/create">
+            <Plus className="mr-2 h-4 w-4" />
+            Crear Torneo
+          </Link>
+        </Button>
+      </div>
 
-        <div className="flex flex-col gap-4 md:flex-row md:items-center">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search tournaments..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-              data-testid="input-search"
-            />
-          </div>
-          <div className="flex gap-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtros de Búsqueda</CardTitle>
+          <CardDescription>Encuentra el torneo perfecto para ti</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar torneos..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+                data-testid="input-search-tournaments"
+              />
+            </div>
             <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-32" data-testid="select-type">
-                <SelectValue placeholder="Type" />
+              <SelectTrigger data-testid="select-filter-type">
+                <SelectValue placeholder="Tipo de Torneo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="singles">Singles</SelectItem>
-                <SelectItem value="doubles">Doubles</SelectItem>
+                <SelectItem value="all">Todos los Tipos</SelectItem>
+                <SelectItem value="singles">Individual</SelectItem>
+                <SelectItem value="doubles">Dobles</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-40" data-testid="select-status">
-                <SelectValue placeholder="Status" />
+              <SelectTrigger data-testid="select-filter-status">
+                <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="registration_open">Registration Open</SelectItem>
-                <SelectItem value="upcoming">Upcoming</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="all">Todos los Estados</SelectItem>
+                <SelectItem value="registration_open">Inscripción Abierta</SelectItem>
+                <SelectItem value="upcoming">Próximamente</SelectItem>
+                <SelectItem value="in_progress">En Progreso</SelectItem>
+                <SelectItem value="completed">Finalizados</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <Tabs defaultValue="all" className="space-y-6">
-        <TabsList>
+      <Tabs defaultValue="all" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="all" data-testid="tab-all">
-            All ({filteredTournaments.length})
+            Todos ({filteredTournaments.length})
           </TabsTrigger>
-          <TabsTrigger value="open" data-testid="tab-open">
-            Open ({groupedTournaments.registration_open.length})
+          <TabsTrigger value="registration_open" data-testid="tab-open">
+            Abiertos ({groupedByStatus.registration_open.length})
           </TabsTrigger>
           <TabsTrigger value="upcoming" data-testid="tab-upcoming">
-            Upcoming ({groupedTournaments.upcoming.length})
+            Próximos ({groupedByStatus.upcoming.length})
           </TabsTrigger>
-          <TabsTrigger value="active" data-testid="tab-active">
-            Active ({groupedTournaments.in_progress.length})
+          <TabsTrigger value="in_progress" data-testid="tab-in-progress">
+            En Curso ({groupedByStatus.in_progress.length})
+          </TabsTrigger>
+          <TabsTrigger value="completed" data-testid="tab-completed">
+            Finalizados ({groupedByStatus.completed.length})
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="all" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredTournaments.map((tournament) => (
-              <TournamentCard key={tournament.id} tournament={tournament} />
-            ))}
-          </div>
-          {filteredTournaments.length === 0 && (
-            <div className="text-center py-12">
-              <Trophy className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No tournaments found</h3>
-              <p className="text-muted-foreground">Try adjusting your filters</p>
-            </div>
-          )}
+        <TabsContent value="all" className="mt-6">
+          <TournamentGrid tournaments={filteredTournaments} />
         </TabsContent>
-
-        <TabsContent value="open" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {groupedTournaments.registration_open.map((tournament) => (
-              <TournamentCard key={tournament.id} tournament={tournament} />
-            ))}
-          </div>
-          {groupedTournaments.registration_open.length === 0 && (
-            <div className="text-center py-12">
-              <Trophy className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No open registrations</h3>
-              <p className="text-muted-foreground">Check back soon for new tournaments</p>
-            </div>
-          )}
+        <TabsContent value="registration_open" className="mt-6">
+          <TournamentGrid tournaments={groupedByStatus.registration_open} />
         </TabsContent>
-
-        <TabsContent value="upcoming" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {groupedTournaments.upcoming.map((tournament) => (
-              <TournamentCard key={tournament.id} tournament={tournament} />
-            ))}
-          </div>
+        <TabsContent value="upcoming" className="mt-6">
+          <TournamentGrid tournaments={groupedByStatus.upcoming} />
         </TabsContent>
-
-        <TabsContent value="active" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {groupedTournaments.in_progress.map((tournament) => (
-              <TournamentCard key={tournament.id} tournament={tournament} />
-            ))}
-          </div>
+        <TabsContent value="in_progress" className="mt-6">
+          <TournamentGrid tournaments={groupedByStatus.in_progress} />
+        </TabsContent>
+        <TabsContent value="completed" className="mt-6">
+          <TournamentGrid tournaments={groupedByStatus.completed} />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function TournamentGrid({ tournaments }: { tournaments: Tournament[] }) {
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "registration_open":
+        return "default";
+      case "upcoming":
+        return "secondary";
+      case "in_progress":
+        return "outline";
+      case "completed":
+        return "outline";
+      default:
+        return "secondary";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "registration_open":
+        return "Inscripción Abierta";
+      case "upcoming":
+        return "Próximamente";
+      case "in_progress":
+        return "En Progreso";
+      case "completed":
+        return "Finalizado";
+      default:
+        return status;
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    return type === "singles" ? "Individual" : "Dobles";
+  };
+
+  const getGenderLabel = (gender: string) => {
+    switch (gender) {
+      case "male":
+        return "Masculino";
+      case "female":
+        return "Femenino";
+      case "mixed":
+        return "Mixto";
+      default:
+        return gender;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("es-PR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  if (tournaments.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <Trophy className="h-12 w-12 text-muted-foreground mb-4" />
+          <p className="text-lg font-medium">No se encontraron torneos</p>
+          <p className="text-sm text-muted-foreground">
+            Intenta ajustar tus filtros de búsqueda
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {tournaments.map((tournament) => (
+        <Card
+          key={tournament.id}
+          className="hover-elevate overflow-hidden"
+          data-testid={`card-tournament-${tournament.id}`}
+        >
+          <CardHeader className="space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <CardTitle className="text-xl" data-testid={`text-tournament-name-${tournament.id}`}>
+                {tournament.name}
+              </CardTitle>
+              <Badge variant={getStatusBadgeVariant(tournament.status)}>
+                {getStatusLabel(tournament.status)}
+              </Badge>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">{getTypeLabel(tournament.type)}</Badge>
+              <Badge variant="secondary">{getGenderLabel(tournament.genderCategory)}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                <span>
+                  {formatDate(tournament.startDate)}
+                  {tournament.endDate !== tournament.startDate &&
+                    ` - ${formatDate(tournament.endDate)}`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <MapPin className="h-4 w-4" />
+                <span>{tournament.venue}</span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Trophy className="h-4 w-4" />
+                <span>Cuota: ${tournament.entryFee}</span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Users className="h-4 w-4" />
+                <span>
+                  Participantes: {tournament.maxParticipants} máx.
+                </span>
+              </div>
+            </div>
+            <Button
+              asChild
+              className="w-full"
+              variant={
+                tournament.status === "registration_open" ? "default" : "secondary"
+              }
+              data-testid={`button-view-tournament-${tournament.id}`}
+            >
+              <Link href={`/tournaments/${tournament.id}`}>
+                {tournament.status === "registration_open"
+                  ? "Registrarse"
+                  : "Ver Detalles"}
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }
