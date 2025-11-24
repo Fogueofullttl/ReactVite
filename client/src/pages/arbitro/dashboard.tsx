@@ -1,11 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Gavel, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Gavel, Clock, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
 import type { Match, User } from "@shared/schema";
 
 interface MatchWithPlayers extends Match {
@@ -15,6 +11,7 @@ interface MatchWithPlayers extends Match {
   player2Partner?: User;
   tournament?: {
     name: string;
+    type: string;
   };
 }
 
@@ -22,28 +19,6 @@ export default function ArbitroDashboard() {
   const { data: matches = [], isLoading } = useQuery<MatchWithPlayers[]>({
     queryKey: ["/api/matches/arbitro"],
   });
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "pending":
-        return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Pendiente</Badge>;
-      case "in_progress":
-        return <Badge variant="default"><Gavel className="h-3 w-3 mr-1" />En Progreso</Badge>;
-      case "completed":
-        return <Badge variant="outline"><CheckCircle2 className="h-3 w-3 mr-1" />Completado</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
 
   const pendingMatches = matches.filter((m) => m.status === "pending");
   const completedMatches = matches.filter((m) => m.status === "completed");
@@ -57,175 +32,206 @@ export default function ArbitroDashboard() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold" data-testid="text-page-title">Panel de Árbitro</h1>
-        <p className="text-muted-foreground">
+    <div className="container mx-auto p-6 space-y-6 max-w-7xl">
+      {/* Title */}
+      <div className="pb-4 border-b-[3px] border-blue-600">
+        <h1 
+          className="text-4xl font-bold text-[#1e3a8a] mb-2" 
+          data-testid="text-page-title"
+        >
+          Panel de Árbitro
+        </h1>
+        <p className="text-gray-600">
           Gestiona tus partidos asignados
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>Partidos Pendientes</CardDescription>
-            <CardTitle className="text-3xl">{pendingMatches.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>Partidos Completados</CardDescription>
-            <CardTitle className="text-3xl">{completedMatches.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>Total Asignados</CardDescription>
-            <CardTitle className="text-3xl">{matches.length}</CardTitle>
-          </CardHeader>
-        </Card>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div 
+          className="bg-gradient-to-br from-[#1e3a8a] to-[#3b82f6] text-white p-6 rounded-xl text-center"
+          data-testid="stat-pending"
+        >
+          <div className="text-5xl font-bold mb-2">{pendingMatches.length}</div>
+          <div className="text-sm opacity-90">Partidos Pendientes</div>
+        </div>
+        
+        <div 
+          className="bg-gradient-to-br from-[#1e3a8a] to-[#3b82f6] text-white p-6 rounded-xl text-center"
+          data-testid="stat-completed"
+        >
+          <div className="text-5xl font-bold mb-2">{completedMatches.length}</div>
+          <div className="text-sm opacity-90">Partidos Completados</div>
+        </div>
+
+        <div 
+          className="bg-gradient-to-br from-[#1e3a8a] to-[#3b82f6] text-white p-6 rounded-xl text-center"
+          data-testid="stat-total"
+        >
+          <div className="text-5xl font-bold mb-2">{matches.length}</div>
+          <div className="text-sm opacity-90">Total Asignados</div>
+        </div>
       </div>
 
-      {/* Pending Matches */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Gavel className="h-5 w-5" />
-            Partidos Pendientes
-          </CardTitle>
-          <CardDescription>
-            Ingresa los resultados de los partidos asignados
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {pendingMatches.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-lg font-medium">No hay partidos pendientes</p>
-              <p className="text-sm text-muted-foreground">
-                Los partidos aparecerán cuando sean asignados
-              </p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Mesa</TableHead>
-                  <TableHead>Jugadores</TableHead>
-                  <TableHead>Torneo</TableHead>
-                  <TableHead>Round</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Acción</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pendingMatches.map((match) => (
-                  <TableRow key={match.id} data-testid={`row-match-${match.id}`}>
-                    <TableCell className="font-mono font-medium">
-                      #{match.matchNumber}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex -space-x-2">
-                          <Avatar className="h-8 w-8 border-2 border-background">
-                            <AvatarImage src={match.player1?.photoUrl || undefined} />
-                            <AvatarFallback className="text-xs">
-                              {getInitials(match.player1?.name || "P1")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <Avatar className="h-8 w-8 border-2 border-background">
-                            <AvatarImage src={match.player2?.photoUrl || undefined} />
-                            <AvatarFallback className="text-xs">
-                              {getInitials(match.player2?.name || "P2")}
-                            </AvatarFallback>
-                          </Avatar>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">
-                            {match.player1?.name} vs {match.player2?.name}
-                          </p>
-                          {(match.player1Partner || match.player2Partner) && (
-                            <p className="text-xs text-muted-foreground">Dobles</p>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {match.tournament?.name}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{match.roundNumber}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(match.status)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        asChild
-                        size="sm"
-                        data-testid={`button-score-match-${match.id}`}
-                      >
-                        <Link href={`/arbitro/match/${match.id}`}>
-                          Ingresar Resultado
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {/* Pending Matches Section */}
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <Gavel className="h-6 w-6 text-[#1e3a8a]" />
+          <h2 className="text-2xl font-bold text-[#1e3a8a]">Partidos Pendientes</h2>
+        </div>
+        <p className="text-gray-600 mb-6">
+          Ingresa los resultados de los partidos asignados
+        </p>
 
-      {/* Completed Matches */}
+        {pendingMatches.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <AlertCircle className="h-16 w-16 text-gray-400 mb-4" />
+            <p className="text-xl font-medium text-gray-700">No hay partidos pendientes</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Los partidos aparecerán cuando sean asignados
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {pendingMatches.map((match) => (
+              <div
+                key={match.id}
+                data-testid={`card-match-${match.id}`}
+                className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-[#3b82f6] hover:-translate-y-1 hover:shadow-xl transition-all duration-300 cursor-pointer"
+              >
+                {/* Status Badge */}
+                <div className="mb-4">
+                  <span className="inline-block px-3 py-1 bg-[#dbeafe] text-[#1e40af] rounded-full text-sm font-semibold">
+                    <Clock className="h-3 w-3 inline mr-1" />
+                    Pendiente
+                  </span>
+                </div>
+
+                {/* Match Title */}
+                <h3 className="text-lg font-bold text-[#1e3a8a] mb-2">
+                  Mesa #{match.matchNumber}
+                </h3>
+
+                {/* Tournament */}
+                <p className="text-sm text-gray-600 mb-3">
+                  {match.tournament?.name || "Sin torneo"}
+                </p>
+
+                {/* Players */}
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-gray-900">
+                      {match.player1?.name || "Jugador 1"}
+                    </span>
+                  </div>
+                  <div className="text-center text-gray-400 font-bold">VS</div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-gray-900">
+                      {match.player2?.name || "Jugador 2"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Round */}
+                <div className="mb-4">
+                  <span className="inline-block px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs font-medium text-gray-700">
+                    Round {match.roundNumber}
+                  </span>
+                </div>
+
+                {/* Action Button */}
+                <Button
+                  asChild
+                  className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+                  data-testid={`button-score-match-${match.id}`}
+                >
+                  <Link href={`/arbitro/match/${match.id}`} className="flex items-center justify-center gap-2">
+                    Ingresar Resultado
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Completed Matches Section */}
       {completedMatches.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5" />
-              Partidos Completados
-            </CardTitle>
-            <CardDescription>
-              Historial de partidos que has arbitrado
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Mesa</TableHead>
-                  <TableHead>Jugadores</TableHead>
-                  <TableHead>Resultado</TableHead>
-                  <TableHead>Ganador</TableHead>
-                  <TableHead>Estado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {completedMatches.map((match) => (
-                  <TableRow key={match.id}>
-                    <TableCell className="font-mono font-medium">
-                      #{match.matchNumber}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {match.player1?.name} vs {match.player2?.name}
-                    </TableCell>
-                    <TableCell className="font-mono">
-                      {match.player1Score} - {match.player2Score}
-                    </TableCell>
-                    <TableCell>
-                      {match.winnerId === match.player1Id ? match.player1?.name : match.player2?.name}
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(match.status)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <CheckCircle2 className="h-6 w-6 text-[#1e3a8a]" />
+            <h2 className="text-2xl font-bold text-[#1e3a8a]">Partidos Completados</h2>
+          </div>
+          <p className="text-gray-600 mb-6">
+            Historial de partidos que has arbitrado
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {completedMatches.map((match) => (
+              <div
+                key={match.id}
+                data-testid={`card-completed-${match.id}`}
+                className="bg-white border-2 border-gray-200 rounded-xl p-6"
+              >
+                {/* Status Badge */}
+                <div className="mb-4">
+                  <span className="inline-block px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-semibold">
+                    <CheckCircle2 className="h-3 w-3 inline mr-1" />
+                    Completado
+                  </span>
+                </div>
+
+                {/* Match Title */}
+                <h3 className="text-lg font-bold text-[#1e3a8a] mb-2">
+                  Mesa #{match.matchNumber}
+                </h3>
+
+                {/* Tournament */}
+                <p className="text-sm text-gray-600 mb-3">
+                  {match.tournament?.name || "Sin torneo"}
+                </p>
+
+                {/* Players with Score */}
+                <div className="space-y-2 mb-4">
+                  <div 
+                    className={`flex items-center justify-between text-sm p-2 rounded ${
+                      match.winnerId === match.player1Id ? 'bg-green-50 font-bold' : ''
+                    }`}
+                  >
+                    <span className="text-gray-900">
+                      {match.player1?.name || "Jugador 1"}
+                    </span>
+                    <span className="font-bold text-gray-900">
+                      {match.player1Score || 0}
+                    </span>
+                  </div>
+                  <div 
+                    className={`flex items-center justify-between text-sm p-2 rounded ${
+                      match.winnerId === match.player2Id ? 'bg-green-50 font-bold' : ''
+                    }`}
+                  >
+                    <span className="text-gray-900">
+                      {match.player2?.name || "Jugador 2"}
+                    </span>
+                    <span className="font-bold text-gray-900">
+                      {match.player2Score || 0}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Winner Badge */}
+                {match.winnerId && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <span className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                      Ganador: {match.winnerId === match.player1Id ? match.player1?.name : match.player2?.name}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

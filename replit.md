@@ -37,6 +37,12 @@
 
 #### 4. **Sistema de Scoring de Partidos** ⭐ NUEVO
 - ✅ **Dashboard de Árbitro** (`/arbitro`)
+  - ⭐ **Diseño actualizado** con estilo del mockup FPRTM:
+    - Stat cards con gradiente azul (#1e3a8a → #3b82f6)
+    - Partidos en grid cards responsive
+    - Hover effects con transform y sombras
+    - Badges con colores específicos (azul/verde/gris)
+    - Título con borde azul inferior (3px)
   - Muestra todos los partidos disponibles (pendientes y completados)
   - Estadísticas en tiempo real
   - Navegación rápida a scoring
