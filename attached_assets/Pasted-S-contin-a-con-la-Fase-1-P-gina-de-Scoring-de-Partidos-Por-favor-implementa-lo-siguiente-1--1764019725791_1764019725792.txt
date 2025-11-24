@@ -1,0 +1,82 @@
+SÍ, continúa con la Fase 1 - Página de Scoring de Partidos.
+
+Por favor implementa lo siguiente:
+
+1. PÁGINA: /arbitro/match/:matchId
+
+ESTRUCTURA DEL FORMULARIO:
+- Título: "Ingresar Resultado del Partido"
+- Sección 1: Info del partido
+  * Mesa #
+  * Jugadores (nombres y fotos)
+  * Categoría del torneo
+  
+- Sección 2: Entrada de Resultados
+  * Hasta 5 sets (best of 5)
+  * Cada set: 2 inputs numéricos (Jugador 1 vs Jugador 2)
+  * Validación: un jugador debe llegar a 11+, diferencia mínima de 2
+  * Ejemplo válido: 11-9, 12-10, 15-13
+  * Ejemplo inválido: 11-10 (diferencia de 1)
+
+- Sección 3: Campo de Observaciones (textarea opcional)
+
+- Botón: "Continuar a Validación" (solo activo si resultados válidos)
+
+2. AL HACER CLICK EN "CONTINUAR A VALIDACIÓN":
+  
+- Mostrar el componente <BirthYearValidation /> ya creado
+- Configurarlo con los jugadores del partido (2 para singles, 4 para dobles)
+- Props necesarios:
+```jsx
+  <BirthYearValidation
+    players={[
+      { id: player1Id, name: "Nombre Jugador 1", correctBirthYear: 1995 },
+      { id: player2Id, name: "Nombre Jugador 2", correctBirthYear: 1998 }
+    ]}
+    onAllValidated={(validatedPlayers) => {
+      // Mostrar botón "Confirmar Resultado"
+    }}
+  />
+```
+
+3. CUANDO TODOS VALIDAN:
+  
+- Mostrar botón verde grande: "✓ Confirmar y Guardar Resultado"
+- Al hacer click:
+  a) Guardar resultado en Firestore (matches collection)
+  b) Actualizar match.status = "completed"
+  c) CALCULAR Y ACTUALIZAR RATINGS automáticamente:
+     * Winner: +15 puntos base
+     * Loser: -10 puntos base
+     * Bonus por diferencia de sets:
+       - 3-0: Winner +5, Loser -3
+       - 3-1: Winner +3, Loser -1
+       - 3-2: Winner +1, Loser +0
+     * Guardar en users.rating
+     * Actualizar rankings collection
+  d) Crear entrada en match.history con toda la info
+  e) Mostrar mensaje de éxito
+  f) Redirigir a /arbitro/dashboard
+
+4. DATOS DE PRUEBA:
+
+Crea 2 partidos de ejemplo en Firestore:
+```javascript
+{
+  id: "match-001",
+  tournamentId: "torneo-nacionales-2025",
+  mesa: 1,
+  player1: { id: "user1", name: "Carlos Rivera", birthYear: 1995, rating: 1850 },
+  player2: { id: "user2", name: "María González", birthYear: 1998, rating: 1720 },
+  status: "pending",
+  stage: "groups"
+}
+```
+
+5. RUTA Y NAVEGACIÓN:
+
+- Agregar link en /arbitro/dashboard que liste partidos pendientes
+- Click en partido → lleva a /arbitro/match/:matchId
+- Componente: MatchScoring.jsx
+
+¿Puedes implementar todo esto ahora?

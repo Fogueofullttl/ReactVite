@@ -112,6 +112,46 @@ export async function seedData() {
     }),
   ]);
 
+  // Create sample matches for arbitro
+  const matches = await Promise.all([
+    storage.createMatch({
+      tournamentId: tournaments[0].id,
+      roundNumber: 1,
+      matchNumber: 1,
+      player1Id: users[0].id,
+      player2Id: users[1].id,
+      player1PartnerId: null,
+      player2PartnerId: null,
+      player1Score: null,
+      player2Score: null,
+      winnerId: null,
+      status: "pending",
+      scheduledAt: null,
+      completedAt: null,
+      refereeId: null,
+      player1Validated: false,
+      player2Validated: false,
+    }),
+    storage.createMatch({
+      tournamentId: tournaments[0].id,
+      roundNumber: 1,
+      matchNumber: 2,
+      player1Id: users[2].id,
+      player2Id: users[3].id,
+      player1PartnerId: null,
+      player2PartnerId: null,
+      player1Score: null,
+      player2Score: null,
+      winnerId: null,
+      status: "pending",
+      scheduledAt: null,
+      completedAt: null,
+      refereeId: null,
+      player1Validated: false,
+      player2Validated: false,
+    }),
+  ]);
+
   console.log("¡Base de datos cargada exitosamente!");
-  console.log(`Creados ${users.length} usuarios y ${tournaments.length} torneos`);
+  console.log(`Creados ${users.length} usuarios, ${tournaments.length} torneos y ${matches.length} partidos`);
 }

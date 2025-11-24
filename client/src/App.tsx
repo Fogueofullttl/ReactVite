@@ -16,6 +16,8 @@ import PlayerDashboard from "@/pages/player-dashboard";
 import Profile from "@/pages/profile";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import ArbitroDashboard from "@/pages/arbitro/dashboard";
+import MatchScoring from "@/pages/arbitro/match-scoring";
 
 function Router() {
   return (
@@ -28,6 +30,8 @@ function Router() {
       <Route path="/profile" component={Profile} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/arbitro" component={ArbitroDashboard} />
+      <Route path="/arbitro/match/:matchId" component={MatchScoring} />
       <Route component={NotFound} />
     </Switch>
   );

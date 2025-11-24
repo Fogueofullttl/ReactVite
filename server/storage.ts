@@ -33,6 +33,7 @@ export interface IStorage {
   // Match operations
   getMatch(id: string): Promise<Match | undefined>;
   getTournamentMatches(tournamentId: string): Promise<Match[]>;
+  getAllMatches(): Promise<Match[]>;
   createMatch(match: InsertMatch): Promise<Match>;
   updateMatch(id: string, updates: Partial<Match>): Promise<void>;
   updateMatchAndRatings(matchId: string, updates: Partial<Match>, match: Match): Promise<void>;
@@ -175,6 +176,10 @@ export class MemStorage implements IStorage {
         }
         return a.matchNumber - b.matchNumber;
       });
+  }
+
+  async getAllMatches(): Promise<Match[]> {
+    return Array.from(this.matches.values());
   }
 
   async createMatch(insertMatch: InsertMatch): Promise<Match> {
