@@ -18,11 +18,9 @@ export default function Rankings() {
     queryKey: ["/api/rankings"],
   });
 
-  const filteredPlayers = players.filter((player) => {
-    if (gender === "all") return true;
-    // Gender filtering would need to be added to the User schema
-    return true;
-  });
+  // Note: Category and gender filtering will be implemented when User schema is extended
+  // For now, showing all players sorted by rating
+  const filteredPlayers = players;
 
   const getInitials = (name: string) => {
     return name
