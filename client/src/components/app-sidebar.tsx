@@ -29,8 +29,8 @@ import type { UserRole } from "@shared/schema";
 
 // Mock user - will be replaced with real auth
 const mockUser = {
-  name: "Guest User",
-  email: "guest@example.com",
+  name: "Usuario Invitado",
+  email: "invitado@example.com",
   role: "public" as UserRole,
   memberNumber: "PRTTM-000000",
   membershipStatus: "expired" as const,
@@ -45,38 +45,46 @@ const roleIcons = {
   public: User,
 };
 
+const roleLabels: Record<UserRole, string> = {
+  owner: "Propietario",
+  admin: "Administrador",
+  referee: "Árbitro",
+  player: "Jugador",
+  public: "Público",
+};
+
 const menuItemsByRole: Record<UserRole, Array<{ title: string; url: string; icon: any }>> = {
   public: [
-    { title: "Home", url: "/", icon: Home },
-    { title: "Tournaments", url: "/tournaments", icon: Trophy },
+    { title: "Inicio", url: "/", icon: Home },
+    { title: "Torneos", url: "/tournaments", icon: Trophy },
     { title: "Rankings", url: "/rankings", icon: TrendingUp },
   ],
   player: [
-    { title: "Dashboard", url: "/dashboard", icon: Home },
-    { title: "Tournaments", url: "/tournaments", icon: Trophy },
-    { title: "My Matches", url: "/my-matches", icon: Calendar },
+    { title: "Panel", url: "/dashboard", icon: Home },
+    { title: "Torneos", url: "/tournaments", icon: Trophy },
+    { title: "Mis Partidos", url: "/my-matches", icon: Calendar },
     { title: "Rankings", url: "/rankings", icon: TrendingUp },
-    { title: "Profile", url: "/profile", icon: User },
+    { title: "Perfil", url: "/profile", icon: User },
   ],
   referee: [
-    { title: "Dashboard", url: "/referee", icon: Home },
-    { title: "Assigned Matches", url: "/referee/matches", icon: Gavel },
-    { title: "Tournaments", url: "/tournaments", icon: Trophy },
+    { title: "Panel", url: "/referee", icon: Home },
+    { title: "Partidos Asignados", url: "/referee/matches", icon: Gavel },
+    { title: "Torneos", url: "/tournaments", icon: Trophy },
     { title: "Rankings", url: "/rankings", icon: TrendingUp },
   ],
   admin: [
-    { title: "Dashboard", url: "/admin", icon: Home },
-    { title: "Tournaments", url: "/tournaments", icon: Trophy },
-    { title: "Manage Users", url: "/admin/users", icon: Users },
-    { title: "Registrations", url: "/admin/registrations", icon: Medal },
+    { title: "Panel", url: "/admin", icon: Home },
+    { title: "Torneos", url: "/tournaments", icon: Trophy },
+    { title: "Gestión de Usuarios", url: "/admin/users", icon: Users },
+    { title: "Registros", url: "/admin/registrations", icon: Medal },
     { title: "Rankings", url: "/rankings", icon: TrendingUp },
   ],
   owner: [
-    { title: "Dashboard", url: "/owner", icon: Home },
-    { title: "System Analytics", url: "/owner/analytics", icon: TrendingUp },
-    { title: "Tournaments", url: "/tournaments", icon: Trophy },
-    { title: "All Users", url: "/owner/users", icon: Users },
-    { title: "Settings", url: "/owner/settings", icon: Settings },
+    { title: "Panel", url: "/owner", icon: Home },
+    { title: "Analíticas", url: "/owner/analytics", icon: TrendingUp },
+    { title: "Torneos", url: "/tournaments", icon: Trophy },
+    { title: "Todos los Usuarios", url: "/owner/users", icon: Users },
+    { title: "Configuración", url: "/owner/settings", icon: Settings },
   ],
 };
 
@@ -100,6 +108,19 @@ export function AppSidebar() {
     return "secondary";
   };
 
+  const getMembershipLabel = () => {
+    switch (mockUser.membershipStatus) {
+      case "active":
+        return "Activa";
+      case "expired":
+        return "Expirada";
+      case "pending":
+        return "Pendiente";
+      default:
+        return mockUser.membershipStatus;
+    }
+  };
+
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
@@ -108,15 +129,15 @@ export function AppSidebar() {
             <Trophy className="h-6 w-6" />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">PR Table Tennis</span>
-            <span className="text-xs text-muted-foreground">Tournament System</span>
+            <span className="text-sm font-semibold">Tenis de Mesa PR</span>
+            <span className="text-xs text-muted-foreground">Sistema de Torneos</span>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>Navegación</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
@@ -151,10 +172,10 @@ export function AppSidebar() {
           </div>
           <div className="flex items-center gap-2">
             <Badge variant={getMembershipBadgeVariant()} className="text-xs">
-              {mockUser.membershipStatus.charAt(0).toUpperCase() + mockUser.membershipStatus.slice(1)}
+              {getMembershipLabel()}
             </Badge>
-            <Badge variant="outline" className="text-xs capitalize">
-              {mockUser.role}
+            <Badge variant="outline" className="text-xs">
+              {roleLabels[mockUser.role]}
             </Badge>
           </div>
         </div>

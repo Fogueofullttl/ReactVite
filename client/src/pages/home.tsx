@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -5,51 +6,21 @@ import { Badge } from "@/components/ui/badge";
 import { Trophy, Users, Calendar, TrendingUp, Medal, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
 import heroImage from "@assets/generated_images/table_tennis_tournament_hero_image.png";
+import type { User, Tournament } from "@shared/schema";
 
 export default function Home() {
-  const topPlayers = [
-    { rank: 1, name: "Carlos Rivera", rating: 1850, club: "San Juan TT", wins: 45, photoUrl: null },
-    { rank: 2, name: "María González", rating: 1820, club: "Ponce Club", wins: 42, photoUrl: null },
-    { rank: 3, name: "José Martínez", rating: 1795, club: "Mayagüez TT", wins: 38, photoUrl: null },
-    { rank: 4, name: "Ana Rodríguez", rating: 1770, club: "Caguas TT", wins: 35, photoUrl: null },
-    { rank: 5, name: "Luis Torres", rating: 1745, club: "San Juan TT", wins: 32, photoUrl: null },
-  ];
+  const { data: players = [] } = useQuery<User[]>({
+    queryKey: ["/api/rankings"],
+  });
 
-  const upcomingTournaments = [
-    {
-      id: 1,
-      name: "Puerto Rico Open 2025",
-      date: "January 15-17, 2025",
-      venue: "Centro de Convenciones, San Juan",
-      type: "Singles",
-      category: "Mixed",
-      participants: 32,
-      maxParticipants: 64,
-      status: "registration_open",
-    },
-    {
-      id: 2,
-      name: "Doubles Championship",
-      date: "February 5-6, 2025",
-      venue: "Coliseo Municipal, Ponce",
-      type: "Doubles",
-      category: "Mixed",
-      participants: 16,
-      maxParticipants: 32,
-      status: "registration_open",
-    },
-    {
-      id: 3,
-      name: "Women's Invitational",
-      date: "February 20, 2025",
-      venue: "Club Deportivo, Mayagüez",
-      type: "Singles",
-      category: "Female",
-      participants: 12,
-      maxParticipants: 24,
-      status: "upcoming",
-    },
-  ];
+  const { data: tournaments = [] } = useQuery<Tournament[]>({
+    queryKey: ["/api/tournaments"],
+  });
+
+  const topPlayers = players.slice(0, 5);
+  const upcomingTournaments = tournaments
+    .filter((t) => t.status === "registration_open" || t.status === "upcoming")
+    .slice(0, 3);
 
   const getInitials = (name: string) => {
     return name
@@ -60,26 +31,39 @@ export default function Home() {
       .slice(0, 2);
   };
 
+  const formatDate = (startDate: string, endDate: string) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    const options: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" };
+    
+    if (startDate === endDate) {
+      return start.toLocaleDateString("es-PR", options);
+    }
+    
+    return `${start.toLocaleDateString("es-PR", { month: "long", day: "numeric" })} - ${end.toLocaleDateString("es-PR", { day: "numeric", year: "numeric" })}`;
+  };
+
   const steps = [
     {
       icon: Users,
-      title: "Register",
-      description: "Create your account and complete your player profile",
+      title: "Regístrate",
+      description: "Crea tu cuenta y completa tu perfil de jugador",
     },
     {
       icon: Trophy,
-      title: "Join Tournaments",
-      description: "Browse and register for upcoming competitions",
+      title: "Únete a Torneos",
+      description: "Explora y regístrate en las competencias próximas",
     },
     {
       icon: Medal,
-      title: "Compete",
-      description: "Play matches and track your performance",
+      title: "Compite",
+      description: "Juega partidos y registra tu rendimiento",
     },
     {
       icon: TrendingUp,
-      title: "Climb Rankings",
-      description: "Improve your rating and become a champion",
+      title: "Escala en los Rankings",
+      description: "Mejora tu rating y conviértete en campeón",
     },
   ];
 
@@ -89,7 +73,7 @@ export default function Home() {
         <div className="absolute inset-0">
           <img
             src={heroImage}
-            alt="Table tennis tournament action"
+            alt="Acción de torneo de tenis de mesa"
             className="h-full w-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/30" />
@@ -97,12 +81,12 @@ export default function Home() {
         <div className="relative flex h-full items-center justify-center px-4">
           <div className="max-w-4xl text-center">
             <h1 className="mb-4 text-4xl font-bold text-white md:text-5xl lg:text-6xl">
-              Join Puerto Rico's Premier
+              Únete a la Comunidad
               <br />
-              Table Tennis Community
+              Premier de Tenis de Mesa de Puerto Rico
             </h1>
             <p className="mb-8 text-lg text-white/90 md:text-xl">
-              Compete in tournaments, track your rankings, and connect with players across the island
+              Compite en torneos, rastrea tus rankings y conecta con jugadores de toda la isla
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <Button
@@ -111,7 +95,7 @@ export default function Home() {
                 className="bg-primary hover-elevate active-elevate-2"
                 data-testid="button-register"
               >
-                <Link href="/register">Get Started</Link>
+                <Link href="/register">Comenzar</Link>
               </Button>
               <Button
                 size="lg"
@@ -120,7 +104,7 @@ export default function Home() {
                 className="backdrop-blur-sm bg-white/10 border-white/30 text-white hover-elevate active-elevate-2"
                 data-testid="button-view-tournaments"
               >
-                <Link href="/tournaments">View Tournaments</Link>
+                <Link href="/tournaments">Ver Torneos</Link>
               </Button>
             </div>
           </div>
@@ -130,9 +114,9 @@ export default function Home() {
       <section className="py-16 px-4">
         <div className="mx-auto max-w-7xl">
           <div className="mb-12 text-center">
-            <h2 className="mb-3 text-3xl font-bold">Featured Tournaments</h2>
+            <h2 className="mb-3 text-3xl font-bold">Torneos Destacados</h2>
             <p className="text-muted-foreground">
-              Register now for upcoming competitions
+              Regístrate ahora para las próximas competencias
             </p>
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -144,11 +128,11 @@ export default function Home() {
                       <CardTitle className="mb-1">{tournament.name}</CardTitle>
                       <CardDescription className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {tournament.date}
+                        {formatDate(tournament.startDate, tournament.endDate)}
                       </CardDescription>
                     </div>
                     <Badge variant={tournament.status === "registration_open" ? "default" : "secondary"}>
-                      {tournament.status === "registration_open" ? "Open" : "Upcoming"}
+                      {tournament.status === "registration_open" ? "Abierto" : "Próximamente"}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -161,13 +145,14 @@ export default function Home() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Badge variant="outline" className="text-xs">
-                      {tournament.type}
+                      {tournament.type === "singles" ? "Individual" : "Dobles"}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
-                      {tournament.category}
+                      {tournament.genderCategory === "mixed" ? "Mixto" : 
+                       tournament.genderCategory === "male" ? "Masculino" : "Femenino"}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
-                      {tournament.participants}/{tournament.maxParticipants} Players
+                      {tournament.maxParticipants} Jugadores
                     </Badge>
                   </div>
                   <Button
@@ -177,12 +162,17 @@ export default function Home() {
                     data-testid={`button-register-tournament-${tournament.id}`}
                   >
                     <Link href={`/tournaments/${tournament.id}`}>
-                      {tournament.status === "registration_open" ? "Register Now" : "View Details"}
+                      {tournament.status === "registration_open" ? "Registrarse" : "Ver Detalles"}
                     </Link>
                   </Button>
                 </CardContent>
               </Card>
             ))}
+          </div>
+          <div className="mt-8 text-center">
+            <Button asChild variant="outline" size="lg" data-testid="button-view-all-tournaments">
+              <Link href="/tournaments">Ver Todos los Torneos</Link>
+            </Button>
           </div>
         </div>
       </section>
@@ -190,43 +180,38 @@ export default function Home() {
       <section className="bg-muted/30 py-16 px-4">
         <div className="mx-auto max-w-7xl">
           <div className="mb-12 text-center">
-            <h2 className="mb-3 text-3xl font-bold">Top Ranked Players</h2>
+            <h2 className="mb-3 text-3xl font-bold">Top Jugadores</h2>
             <p className="text-muted-foreground">
-              Current leaders in the singles category
+              Los mejores competidores de Puerto Rico
             </p>
           </div>
-          <Card>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {topPlayers.map((player) => (
-                  <div
-                    key={player.rank}
-                    className="flex items-center gap-4 p-4 hover-elevate"
-                    data-testid={`row-player-${player.rank}`}
-                  >
-                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 font-bold text-primary">
-                      #{player.rank}
-                    </div>
-                    <Avatar className="h-12 w-12 flex-shrink-0">
-                      <AvatarImage src={player.photoUrl || undefined} />
+          <div className="grid gap-6 md:grid-cols-5">
+            {topPlayers.map((player, index) => (
+              <Card key={player.id} className="hover-elevate" data-testid={`card-top-player-${index + 1}`}>
+                <CardHeader className="text-center pb-3">
+                  <div className="flex justify-center mb-3">
+                    <Badge variant="secondary" className="font-mono text-sm">
+                      #{index + 1}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-center mb-3">
+                    <Avatar className="h-16 w-16">
+                      <AvatarImage src={player.photoUrl || undefined} alt={player.name} />
                       <AvatarFallback>{getInitials(player.name)}</AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold truncate">{player.name}</div>
-                      <div className="text-sm text-muted-foreground truncate">{player.club}</div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      <div className="text-2xl font-bold font-mono">{player.rating}</div>
-                      <div className="text-xs text-muted-foreground">{player.wins} wins</div>
-                    </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-          <div className="mt-6 text-center">
-            <Button variant="outline" asChild data-testid="button-view-rankings">
-              <Link href="/rankings">View Full Rankings</Link>
+                  <CardTitle className="text-base">{player.name}</CardTitle>
+                  <CardDescription className="text-xs">{player.club}</CardDescription>
+                </CardHeader>
+                <CardContent className="text-center pt-0">
+                  <Badge className="font-mono">{player.rating}</Badge>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="mt-8 text-center">
+            <Button asChild variant="outline" size="lg" data-testid="button-view-full-rankings">
+              <Link href="/rankings">Ver Rankings Completos</Link>
             </Button>
           </div>
         </div>
@@ -235,54 +220,54 @@ export default function Home() {
       <section className="py-16 px-4">
         <div className="mx-auto max-w-7xl">
           <div className="mb-12 text-center">
-            <h2 className="mb-3 text-3xl font-bold">How It Works</h2>
+            <h2 className="mb-3 text-3xl font-bold">Cómo Funciona</h2>
             <p className="text-muted-foreground">
-              Get started in four simple steps
+              Tu camino hacia la competencia profesional
             </p>
           </div>
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-            {steps.map((step, index) => (
-              <div key={index} className="flex flex-col items-center text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <step.icon className="h-8 w-8" />
+            {steps.map((step, index) => {
+              const Icon = step.icon;
+              return (
+                <div key={index} className="text-center" data-testid={`step-${index + 1}`}>
+                  <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                    <Icon className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="mb-2 text-xl font-semibold">{step.title}</h3>
+                  <p className="text-sm text-muted-foreground">{step.description}</p>
                 </div>
-                <h3 className="mb-2 text-lg font-semibold">{step.title}</h3>
-                <p className="text-sm text-muted-foreground">{step.description}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
 
-      <section className="border-t py-12 px-4">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-8 md:grid-cols-3">
-            <div className="text-center">
-              <h3 className="mb-2 text-lg font-semibold">Contact</h3>
-              <p className="text-sm text-muted-foreground">info@prtt.org</p>
-              <p className="text-sm text-muted-foreground">+1 (787) 555-0123</p>
-            </div>
-            <div className="text-center">
-              <h3 className="mb-2 text-lg font-semibold">Quick Links</h3>
-              <div className="flex flex-col gap-1">
-                <Link href="/about" className="text-sm text-muted-foreground hover:text-foreground">
-                  About Us
-                </Link>
-                <Link href="/rules" className="text-sm text-muted-foreground hover:text-foreground">
-                  Tournament Rules
-                </Link>
-                <Link href="/faq" className="text-sm text-muted-foreground hover:text-foreground">
-                  FAQ
-                </Link>
-              </div>
-            </div>
-            <div className="text-center">
-              <h3 className="mb-2 text-lg font-semibold">Follow Us</h3>
-              <p className="text-sm text-muted-foreground">Stay updated on social media</p>
-            </div>
-          </div>
-          <div className="mt-8 border-t pt-8 text-center text-sm text-muted-foreground">
-            © 2025 Puerto Rico Table Tennis Tournament Management. All rights reserved.
+      <section className="bg-primary py-16 px-4">
+        <div className="mx-auto max-w-4xl text-center">
+          <h2 className="mb-4 text-3xl font-bold text-white">
+            ¿Listo para Competir?
+          </h2>
+          <p className="mb-8 text-lg text-white/90">
+            Únete a cientos de jugadores en la comunidad de tenis de mesa más activa de Puerto Rico
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Button
+              size="lg"
+              variant="secondary"
+              asChild
+              data-testid="button-cta-register"
+            >
+              <Link href="/register">Crear Cuenta</Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              asChild
+              className="bg-transparent border-white/30 text-white hover-elevate active-elevate-2"
+              data-testid="button-cta-learn-more"
+            >
+              <Link href="/about">Conoce Más</Link>
+            </Button>
           </div>
         </div>
       </section>
