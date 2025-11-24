@@ -26,7 +26,7 @@ The system employs a client-server architecture.
     -   **Match Scoring:** Features a dedicated referee dashboard and scoring page (`/arbitro/match/:matchId`). Includes a form for up to 5 sets, with automatic validation for table tennis rules (11+ points, 2-point difference).
     -   **Birth Year Validation:** A critical component (`BirthYearValidation`) is integrated into the scoring process, requiring dual validation from players against their profiles before match confirmation.
     -   **ELO Rating System:** Implemented with a K-factor of 32, automatically updating player ratings upon match completion and storing a full history.
-    -   **ATH Móvil Payment System:** Designed to handle 5-character alphanumeric payment codes, with manual admin verification and defined payment states (pending, verified, rejected).
+    -   **ATH Móvil Payment System:** Fully implemented with 5-character alphanumeric reference codes (últimos 5 del Reference Number), manual admin verification, and complete payment workflow (pending, verified, rejected). E2E tested successfully.
     -   **Member Number Generation:** Automatic, auto-incrementing member numbers in the format `PRTTM-000123`.
     -   **API Endpoints:** Structured for `/api/tournaments`, `/api/rankings`, `/api/matches`, and payment-related operations.
 -   **System Design Choices:**
