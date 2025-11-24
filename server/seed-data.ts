@@ -152,6 +152,28 @@ export async function seedData() {
     }),
   ]);
 
+  // Create sample tournament registrations
+  const registrations = await Promise.all([
+    storage.createRegistration({
+      tournamentId: tournaments[0].id,
+      playerId: users[0].id,
+      partnerId: null,
+      athMovilReference: "ABC12",
+    }),
+    storage.createRegistration({
+      tournamentId: tournaments[0].id,
+      playerId: users[1].id,
+      partnerId: null,
+      athMovilReference: "XYZ99",
+    }),
+    storage.createRegistration({
+      tournamentId: tournaments[1].id,
+      playerId: users[2].id,
+      partnerId: users[3].id,
+      athMovilReference: "D4E5F",
+    }),
+  ]);
+
   console.log("¡Base de datos cargada exitosamente!");
-  console.log(`Creados ${users.length} usuarios, ${tournaments.length} torneos y ${matches.length} partidos`);
+  console.log(`Creados ${users.length} usuarios, ${tournaments.length} torneos, ${matches.length} partidos, y ${registrations.length} registros`);
 }

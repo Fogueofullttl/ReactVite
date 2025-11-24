@@ -137,6 +137,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Register to tournament (convenience endpoint)
+  app.post("/api/tournaments/:id/register", async (req, res) => {
+    try {
+      // TODO: Get playerId from auth session instead of request body
+      // For now, accept playerId in request body for testing
+      const playerId = req.body.playerId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "playerId is required" });
+      }
+      
+      const validated = insertTournamentRegistrationSchema.parse({
+        tournamentId: req.params.id,
+        playerId: playerId,
+        partnerId: req.body.partnerId || null,
+        athMovilReference: req.body.athMovilReference,
+      });
+      
+      const registration = await storage.createRegistration(validated);
+      res.status(201).json(registration);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Validation error", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to register to tournament" });
+    }
+  });
+
+  // Get all registrations (for admin)
+  app.get("/api/registrations", async (req, res) => {
+    try {
+      const registrations = await storage.getAllRegistrations();
+      
+      // Populate registrations with player and tournament details
+      const registrationsWithDetails = await Promise.all(
+        registrations.map(async (registration) => {
+          const [player, partner, tournament, verifier] = await Promise.all([
+            storage.getUser(registration.playerId),
+            registration.partnerId ? storage.getUser(registration.partnerId) : Promise.resolve(undefined),
+            storage.getTournament(registration.tournamentId),
+            registration.verifiedBy ? storage.getUser(registration.verifiedBy) : Promise.resolve(undefined),
+          ]);
+
+          return {
+            ...registration,
+            player,
+            partner,
+            tournament,
+            verifiedBy: verifier,
+          };
+        })
+      );
+
+      res.json(registrationsWithDetails);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch registrations" });
+    }
+  });
+
+  // Verify/reject registration payment
+  app.patch("/api/registrations/:id/verify", async (req, res) => {
+    try {
+      const { status, rejectionReason } = req.body;
+      
+      if (!["verified", "rejected"].includes(status)) {
+        return res.status(400).json({ error: "Status must be 'verified' or 'rejected'" });
+      }
+
+      // Mock admin user ID - will be replaced with real auth
+      const mockAdminId = "2"; // TODO: Get from auth session
+      
+      const updates: any = {
+        paymentStatus: status,
+        verifiedBy: mockAdminId,
+        verifiedAt: new Date().toISOString(),
+      };
+
+      if (status === "rejected" && rejectionReason) {
+        updates.rejectionReason = rejectionReason;
+      }
+
+      await storage.updateRegistration(req.params.id, updates);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to verify registration" });
+    }
+  });
+
   // Match routes
   app.get("/api/tournaments/:tournamentId/matches", async (req, res) => {
     try {

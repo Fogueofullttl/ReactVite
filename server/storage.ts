@@ -26,6 +26,8 @@ export interface IStorage {
   updateTournament(id: string, updates: Partial<Tournament>): Promise<void>;
 
   // Registration operations
+  getRegistration(id: string): Promise<TournamentRegistration | undefined>;
+  getAllRegistrations(): Promise<TournamentRegistration[]>;
   getTournamentRegistrations(tournamentId: string): Promise<TournamentRegistration[]>;
   createRegistration(registration: InsertTournamentRegistration): Promise<TournamentRegistration>;
   updateRegistration(id: string, updates: Partial<TournamentRegistration>): Promise<void>;
@@ -135,6 +137,14 @@ export class MemStorage implements IStorage {
   }
 
   // Registration operations
+  async getRegistration(id: string): Promise<TournamentRegistration | undefined> {
+    return this.registrations.get(id);
+  }
+
+  async getAllRegistrations(): Promise<TournamentRegistration[]> {
+    return Array.from(this.registrations.values());
+  }
+
   async getTournamentRegistrations(tournamentId: string): Promise<TournamentRegistration[]> {
     return Array.from(this.registrations.values()).filter(
       (reg) => reg.tournamentId === tournamentId
@@ -148,6 +158,10 @@ export class MemStorage implements IStorage {
     const registration: TournamentRegistration = {
       ...insertRegistration,
       id,
+      paymentStatus: "pending",
+      verifiedBy: null,
+      verifiedAt: null,
+      rejectionReason: null,
       registeredAt: now,
     };
     

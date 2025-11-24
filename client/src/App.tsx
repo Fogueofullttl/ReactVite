@@ -11,6 +11,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Tournaments from "@/pages/tournaments";
 import TournamentDetail from "@/pages/tournament-detail";
+import TournamentRegister from "@/pages/tournament-register";
 import Rankings from "@/pages/rankings";
 import PlayerDashboard from "@/pages/player-dashboard";
 import Profile from "@/pages/profile";
@@ -33,6 +34,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/tournaments" component={Tournaments} />
+      <Route path="/tournaments/:id/register" component={TournamentRegister} />
       <Route path="/tournaments/:id" component={TournamentDetail} />
       <Route path="/rankings" component={Rankings} />
       <Route path="/dashboard" component={PlayerDashboard} />
