@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FPRTM - Sistema de Torneos - Mockup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+        }
+
+        .nav {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .screen-selector {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .screen-selector h3 {
+            margin-bottom: 1rem;
+            color: #1e3a8a;
+        }
+
+        .screen-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .screen-btn {
+            padding: 0.75rem 1.5rem;
+            border: 2px solid #3b82f6;
+            background: white;
+            color: #3b82f6;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .screen-btn:hover {
+            background: #eff6ff;
+            transform: translateY(-2px);
+        }
+
+        .screen-btn.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .screen {
+            display: none;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 2rem;
+            animation: fadeIn 0.3s;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .screen-title {
+            font-size: 2rem;
+            color: #1e3a8a;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 3px solid #3b82f6;
+        }
+
+        .card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card h3 {
+            color: #1e3a8a;
+            margin-bottom: 1rem;
+        }
+
+        .tournament-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .tournament-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .tournament-card:hover {
+            border-color: #3b82f6;
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(59, 130, 246, 0.2);
+        }
+
+        .tournament-status {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-upcoming {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-completed {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .table th {
+            background: #f8fafc;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: #1e3a8a;
+            border-bottom: 2px solid #3b82f6;
+        }
+
+        .table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .table tr:hover {
+            background: #f9fafb;
+        }
+
+        .bracket {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            overflow-x: auto;
+            padding: 2rem;
+        }
+
+        .bracket-round {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .bracket-match {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1rem;
+            min-width: 200px;
+        }
+
+        .bracket-player {
+            padding: 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .bracket-player:last-child {
+            border-bottom: none;
+        }
+
+        .bracket-player.winner {
+            background: #dcfce7;
+            font-weight: 600;
+        }
+
+        .group-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .group-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 1.5rem;
+        }
+
+        .group-header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .player-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .player-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .player-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .player-name {
+            font-weight: 600;
+            color: #1e3a8a;
+        }
+
+        .player-club {
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .match-score {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .match-score input {
+            width: 60px;
+            text-align: center;
+            padding: 0.5rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .tournament-grid, .group-container {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 0 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-content">
+            <div class="logo">
+                🏓 FPRTM Sistema de Torneos
+            </div>
+            <div class="nav-links">
+                <a href="#" class="active">Torneos</a>
+                <a href="#">Jugadores</a>
+                <a href="#">Rankings</a>
+                <a href="#">Reportes</a>
+                <a href="#">Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="screen-selector">
+            <h3>📱 Navegación de Mockups - Selecciona una pantalla:</h3>
+            <div class="screen-buttons">
+                <button class="screen-btn active" onclick="showScreen('dashboard')">Dashboard</button>
+                <button class="screen-btn" onclick="showScreen('crear-torneo')">Crear Torneo</button>
+                <button class="screen-btn" onclick="showScreen('jugadores')">Gestión de Jugadores</button>
+                <button class="screen-btn" onclick="showScreen('grupos')">Vista de Grupos</button>
+                <button class="screen-btn" onclick="showScreen('bracket')">Cuadro Eliminación</button>
+                <button class="screen-btn" onclick="showScreen('resultados')">Ingreso de Resultados</button>
+                <button class="screen-btn" onclick="showScreen('rankings')">Rankings</button>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="screen active">
+            <h1 class="screen-title">📊 Dashboard - Torneos</h1>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">3</div>
+                    <div class="stat-label">Torneos Activos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">156</div>
+                    <div class="stat-label">Jugadores Registrados</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">12</div>
+                    <div class="stat-label">Torneos Completados</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">45</div>
+                    <div class="stat-label">Partidos Hoy</div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <button class="btn btn-primary" onclick="showScreen('crear-torneo')">➕ Crear Nuevo Torneo</button>
+            </div>
+
+            <div class="tournament-grid">
+                <div class="tournament-card">
+                    <span class="tournament-status status-active">● En Curso</span>
+                    <h3>Nacionales 2025</h3>
+                    <p style="color: #6b7280; margin: 0.5rem 0;">8 de Noviembre, 2025</p>
+                    <p style="color: #374151;"><strong>Categoría:</strong> Dobles Mixtos</p>
+                    <p style="color: #374151;"><strong>Sede:</strong> Coliseo Rubén Zayas Montañez</p>
+                    <p style="color: #374151; margin-top: 0.5rem;"><strong>Jugadores:</strong> 25 parejas</p>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary">Ver Detalles</button>
+                        <button class="btn btn-secondary">Resultados</button>
+                    </div>
+                </div>
+
+                <div class="tournament-card">
+                    <span class="tournament-status status-upcoming">● Próximo</span>
+                    <h3>Regional Norte 2025</h3>
+                    <p style="color: #6b7280; margin: 0.5rem 0;">15 de Diciembre, 2025</p>
+                    <p style="color: #374151;"><strong>Categoría:</strong> Singles Masculino</p>
+                    <p style="color: #374151;"><strong>Sede:</strong> Bayamón</p>
+                    <p style="color: #374151; margin-top: 0.5rem;"><strong>Jugadores:</strong> 32 inscritos</p>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary">Ver Detalles</button>
+                        <button class="btn btn-secondary">Inscribir</button>
+                    </div>
+                </div>
+
+                <div class="tournament-card">
+                    <span class="tournament-status status-completed">● Finalizado</span>
+                    <h3>Copa Juvenil 2024</h3>
+                    <p style="color: #6b7280; margin: 0.5rem 0;">20 de Octubre, 2024</p>
+                    <p style="color: #374151;"><strong>Categoría:</strong> Sub-18</p>
+                    <p style="color: #374151;"><strong>Sede:</strong> Ponce</p>
+                    <p style="color: #374151; margin-top: 0.5rem;"><strong>Campeón:</strong> Gabriel Gómez</p>
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary">Ver Resultados</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Crear Torneo -->
+        <div id="crear-torneo" class="screen">
+            <h1 class="screen-title">➕ Crear Nuevo Torneo</h1>
+            
+            <div class="card">
+                <h3>Información General</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nombre del Torneo *</label>
+                        <input type="text" placeholder="Ej: Nacionales 2025" value="Nacionales 2025">
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Evento *</label>
+                        <select>
+                            <option>Federativo</option>
+                            <option>Regional</option>
+                            <option>Club</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Categoría *</label>
+                        <select>
+                            <option>Dobles Mixtos</option>
+                            <option>Singles Masculino</option>
+                            <option>Singles Femenino</option>
+                            <option>Dobles Masculino</option>
+                            <option>Dobles Femenino</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha *</label>
+                        <input type="date" value="2025-11-08">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Hora de Inicio *</label>
+                        <input type="time" value="12:00">
+                    </div>
+                    <div class="form-group">
+                        <label>Sede *</label>
+                        <input type="text" placeholder="Coliseo o lugar" value="Coliseo Rubén Zayas Montañez - Trujillo Alto">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Director del Torneo</label>
+                    <input type="text" placeholder="Nombre del director">
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Configuración del Formato</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Formato de Competencia *</label>
+                        <select>
+                            <option>Grupos + Eliminación</option>
+                            <option>Eliminación Directa</option>
+                            <option>Round Robin (Todos contra Todos)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Jugadores por Grupo</label>
+                        <select>
+                            <option>3</option>
+                            <option>4</option>
+                            <option>5</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Número de Grupos</label>
+                        <input type="number" value="9" min="1" max="32">
+                    </div>
+                    <div class="form-group">
+                        <label>Clasifican por Grupo</label>
+                        <select>
+                            <option>Top 1</option>
+                            <option>Top 2</option>
+                            <option>Top 3</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Inscripciones</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Cuota de Participación</label>
+                        <input type="number" placeholder="$0.00" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Límite de Jugadores</label>
+                        <input type="number" placeholder="Sin límite" value="32">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" checked> Requiere membresía vigente
+                    </label>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-primary">💾 Guardar Torneo</button>
+                <button class="btn btn-secondary" onclick="showScreen('dashboard')">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- Gestión de Jugadores -->
+        <div id="jugadores" class="screen">
+            <h1 class="screen-title">👥 Gestión de Jugadores - Nacionales 2025</h1>
+            
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3>Parejas Inscritas (25)</h3>
+                    <button class="btn btn-primary">➕ Inscribir Pareja</button>
+                </div>
+
+                <div class="form-group">
+                    <input type="text" placeholder="🔍 Buscar por nombre, club...">
+                </div>
+
+                <div class="player-list">
+                    <div class="player-item">
+                        <div class="player-info">
+                            <div class="player-name">Gilianie Ávila Vélez - Jerall A Montijo Rivera</div>
+                            <div class="player-club">Club: Sin asignar | Ranking: 4087</div>
+                        </div>
+                        <div>
+                            <span class="badge badge-warning">Pendiente pago</span>
+                            <button class="btn btn-secondary" style="margin-left: 0.5rem; padding: 0.5rem 1rem;">Editar</button>
+                        </div>
+                    </div>
+
+                    <div class="player-item">
+                        <div class="player-info">
+                            <div class="player-name">Kristal A Meléndez Lafontaine - Axel Torres Torres</div>
+                            <div class="player-club">Club: Sin asignar | Ranking: 3812</div>
+                        </div>
+                        <div>
+                            <span class="badge badge-success">✓ Confirmado</span>
+                            <button class="btn btn-secondary" style="margin-left: 0.5rem; padding: 0.5rem 1rem;">Editar</button>
+                        </div>
+                    </div>
+
+                    <div class="player-item">
+                        <div class="player-info">
+                            <div class="player-name">Alahia Medina García - Ryan R Cuadro Pérez</div>
+                            <div class="player-club">Club: Sin asignar | Ranking: 3654</div>
+                        </div>
+                        <div>
+                            <span class="badge badge-success">✓ Confirmado</span>
+                            <button class="btn btn-secondary" style="margin-left: 0.5rem; padding: 0.5rem 1rem;">Editar</button>
+                        </div>
+                    </div>
+
+                    <div class="player-item">
+                        <div class="player-info">
+                            <div class="player-name">Liara Rivera Rodriguez - Chrisnomar Avilés Pérez</div>
+                            <div class="player-club">Club: Sin asignar | Ranking: 3521</div>
+                        </div>
+                        <div>
+                            <span class="badge badge-success">✓ Confirmado</span>
+                            <button class="btn btn-secondary" style="margin-left: 0.5rem; padding: 0.5rem 1rem;">Editar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-success">🎲 Realizar Sorteo</button>
+                <button class="btn btn-secondary">📥 Exportar Lista</button>
+            </div>
+        </div>
+
+        <!-- Vista de Grupos -->
+        <div id="grupos" class="screen">
+            <h1 class="screen-title">🏆 Fase de Grupos - Nacionales 2025</h1>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <button class="btn btn-primary">📊 Ver Todos los Grupos</button>
+                <button class="btn btn-secondary">🎯 Ingresar Resultados</button>
+            </div>
+
+            <div class="group-container">
+                <div class="group-card">
+                    <div class="group-header">GRUPO 1 - Mesa 1</div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Pos</th>
+                                <th>Pareja</th>
+                                <th>V</th>
+                                <th>D</th>
+                                <th>Pts</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td>Gilianie Ávila - Jerall Montijo</td>
+                                <td>2</td>
+                                <td>0</td>
+                                <td>6</td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td>Adriana Vargas - John Díaz</td>
+                                <td>0</td>
+                                <td>2</td>
+                                <td>0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div style="margin-top: 1rem;">
+                        <button class="btn btn-primary" style="width: 100%;">Ver Partidos</button>
+                    </div>
+                </div>
+
+                <div class="group-card">
+                    <div class="group-header">GRUPO 2 - Mesa 2</div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Pos</th>
+                                <th>Pareja</th>
+                                <th>V</th>
+                                <th>D</th>
+                                <th>Pts</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td>Kristal Meléndez - Axel Torres</td>
+                                <td>1</td>
+                                <td>1</td>
+                                <td>3</td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td>Fiorella Frye - Sebastián Pedraza</td>
+                                <td>1</td>
+                                <td>1</td>
+                                <td>3</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div style="margin-top: 1rem;">
+                        <button class="btn btn-primary" style="width: 100%;">Ver Partidos</button>
+                    </div>
+                </div>
+
+                <div class="group-card">
+                    <div class="group-header">GRUPO 3 - Mesa 3</div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Pos</th>
+                                <th>Pareja</th>
+                                <th>V</th>
+                                <th>D</th>
+                                <th>Pts</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>-</td>
+                                <td>Alahia Medina - Ryan Cuadro</td>
+                                <td>0</td>
+                                <td>0</td>
+                                <td>0</td>
+                            </tr>
+                            <tr>
+                                <td>-</td>
+                                <td>Jeyliaris Mateo - Michael Rodriguez</td>
+                                <td>0</td>
+                                <td>0</td>
+                                <td>0</td>
+                            </tr>
+                            <tr>
+                                <td>-</td>
+                                <td>Nahia Medina - Gabriel Gómez</td>
+                                <td>0</td>
+                                <td>0</td>
+                                <td>0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div style="margin-top: 1rem;">
+                        <button class="btn btn-primary" style="width: 100%;">Ver Partidos</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cuadro de Eliminación -->
+        <div id="bracket" class="screen">
+            <h1 class="screen-title">🏆 Cuadro de Eliminación - Nacionales 2025</h1>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <button class="btn btn-secondary">⬅️ Cuartos de Final</button>
+                <button class="btn btn-primary">Semifinales</button>
+                <button class="btn btn-secondary">Final ➡️</button>
+            </div>
+
+            <div style="overflow-x: auto; padding: 1rem;">
+                <div style="display: flex; gap: 3rem; min-width: max-content;">
+                    <!-- Cuartos -->
+                    <div style="display: flex; flex-direction: column; gap: 4rem;">
+                        <div class="bracket-match">
+                            <div style="text-align: center; font-weight: 600; margin-bottom: 0.5rem; color: #3b82f6;">Cuarto 1</div>
+                            <div class="bracket-player winner">
+                                Gilianie Ávila - Jerall Montijo
+                                <span style="float: right; font-weight: bold;">3</span>
+                            </div>
+                            <div class="bracket-player">
+                                Adriana Vargas - John Díaz
+                                <span style="float: right;">1</span>
+                            </div>
+                        </div>
+
+                        <div class="bracket-match">
+                            <div style="text-align: center; font-weight: 600; margin-bottom: 0.5rem; color: #3b82f6;">Cuarto 2</div>
+                            <div class="bracket-player winner">
+                                Kristal Meléndez - Axel Torres
+                                <span style="float: right; font-weight: bold;">3</span>
+                            </div>
+                            <div class="bracket-player">
+                                Fiorella Frye - Sebastián Pedraza
+                                <span style="float: right;">2</span>
+                            </div>
+                        </div>
+
+                        <div class="bracket-match">
+                            <div style="text-align: center; font-weight: 600; margin-bottom: 0.5rem; color: #3b82f6;">Cuarto 3</div>
+                            <div class="bracket-player">
+                                Alahia Medina - Ryan Cuadro
+                                <span style="float: right;">-</span>
+                            </div>
+                            <div class="bracket-player">
+                                Liara Rivera - Chrisnomar Avilés
+                                <span style="float: right;">-</span>
+                            </div>
+                        </div>
+
+                        <div class="bracket-match">
+                            <div style="text-align: center; font-weight: 600; margin-bottom: 0.5rem; color: #3b82f6;">Cuarto 4</div>
+                            <div class="bracket-player">
+                                Emely Alvarado - Alejandro Torres
+                                <span style="float: right;">-</span>
+                            </div>
+                            <div class="bracket-player">
+                                Aurora Bonome - José Nieves
+                                <span style="float: right;">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Semis -->
+                    <div style="display: flex; flex-direction: column; gap: 12rem; margin-top: 6rem;">
+                        <div class="bracket-match">
+                            <div style="text-align: center; font-weight: 600; margin-bottom: 0.5rem; color: #3b82f6;">Semifinal 1</div>
+                            <div class="bracket-player">
+                                Gilianie Ávila - Jerall Montijo
+                                <span style="float: right;">-</span>
+                            </div>
+                            <div class="bracket-player">
+                                Kristal Meléndez - Axel Torres
+                                <span style="float: right;">-</span>
+                            </div>
+                        </div>
+
+                        <div class="bracket-match">
+                            <div style="text-align: center; font-weight: 600; margin-bottom: 0.5rem; color: #3b82f6;">Semifinal 2</div>
+                            <div class="bracket-player">
+                                Por definir
+                                <span style="float: right;">-</span>
+                            </div>
+                            <div class="bracket-player">
+                                Por definir
+                                <span style="float: right;">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Final -->
+                    <div style="display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                        <div class="bracket-match" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-color: #f59e0b;">
+                            <div style="text-align: center; font-weight: 600; margin-bottom: 0.5rem; color: #92400e;">🏆 FINAL</div>
+                            <div class="bracket-player">
+                                Por definir
+                                <span style="float: right;">-</span>
+                            </div>
+                            <div class="bracket-player">
+                                Por definir
+                                <span style="float: right;">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ingreso de Resultados -->
+        <div id="resultados" class="screen">
+            <h1 class="screen-title">🎯 Ingreso de Resultados - Árbitro</h1>
+            
+            <div style="background: #dbeafe; border-left: 4px solid #3b82f6; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                <strong>ℹ️ Instrucciones para Árbitros:</strong> Después de ingresar el resultado, ambos jugadores deben confirmar usando su año de nacimiento (4 dígitos) como validación.
+            </div>
+
+            <div class="card">
+                <h3>Seleccionar Partido</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Fase del Torneo</label>
+                        <select id="fase-select" onchange="updateMatchStatus()">
+                            <option>Grupos</option>
+                            <option>Cuartos de Final</option>
+                            <option>Semifinales</option>
+                            <option>Final</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Grupo / Partido</label>
+                        <select id="partido-select" onchange="updateMatchStatus()">
+                            <option>Grupo 1 - Partido 1</option>
+                            <option>Grupo 1 - Partido 2</option>
+                            <option>Grupo 2 - Partido 1</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Nombre del Árbitro</label>
+                    <input type="text" placeholder="Tu nombre completo" value="Carlos Rodríguez">
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Resultado del Partido</h3>
+                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: white; border-radius: 8px; margin-bottom: 0.5rem;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; font-size: 1.1rem; color: #1e3a8a;">Gilianie Ávila - Jerall Montijo</div>
+                            <div style="color: #6b7280; font-size: 0.9rem;">Ranking: 4087</div>
+                        </div>
+                        <div class="match-score">
+                            <input type="number" value="11" min="0" max="20">
+                            <input type="number" value="11" min="0" max="20">
+                            <input type="number" value="11" min="0" max="20">
+                            <input type="number" value="8" min="0" max="20">
+                            <input type="number" value="" min="0" max="20" placeholder="-">
+                        </div>
+                    </div>
+
+                    <div style="text-align: center; padding: 0.5rem; font-weight: 600; color: #6b7280;">VS</div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: white; border-radius: 8px;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; font-size: 1.1rem; color: #1e3a8a;">Adriana Vargas - John Díaz</div>
+                            <div style="color: #6b7280; font-size: 0.9rem;">Ranking: 3425</div>
+                        </div>
+                        <div class="match-score">
+                            <input type="number" value="7" min="0" max="20">
+                            <input type="number" value="9" min="0" max="20">
+                            <input type="number" value="5" min="0" max="20">
+                            <input type="number" value="11" min="0" max="20">
+                            <input type="number" value="" min="0" max="20" placeholder="-">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Mesa Asignada</label>
+                    <select>
+                        <option>Mesa 1</option>
+                        <option>Mesa 2</option>
+                        <option>Mesa 3</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Notas / Observaciones</label>
+                    <textarea rows="3" placeholder="Comentarios sobre el partido..."></textarea>
+                </div>
+            </div>
+
+            <div id="validation-section" class="card" style="display: none; border: 2px solid #3b82f6;">
+                <h3 style="color: #3b82f6;">🔒 Validación de Resultado</h3>
+                <p style="color: #6b7280; margin-bottom: 1.5rem;">Para confirmar el resultado, cada jugador debe ingresar su año de nacimiento (4 dígitos).</p>
+                
+                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <h4 style="color: #1e3a8a; margin-bottom: 1rem;">Pareja 1: Gilianie Ávila - Jerall Montijo</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Año de Nacimiento - Gilianie Ávila</label>
+                            <input type="number" id="dob-jugador1a" placeholder="Ej: 1998" min="1900" max="2020" maxlength="4">
+                            <span id="status-1a" style="display: none; margin-top: 0.5rem; font-weight: 600;"></span>
+                        </div>
+                        <div class="form-group">
+                            <label>Año de Nacimiento - Jerall Montijo</label>
+                            <input type="number" id="dob-jugador1b" placeholder="Ej: 1995" min="1900" max="2020" maxlength="4">
+                            <span id="status-1b" style="display: none; margin-top: 0.5rem; font-weight: 600;"></span>
+                        </div>
+                    </div>
+                    <div id="pareja1-status" style="display: none; padding: 0.75rem; border-radius: 6px; margin-top: 0.5rem; text-align: center; font-weight: 600;">
+                    </div>
+                </div>
+
+                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 8px;">
+                    <h4 style="color: #1e3a8a; margin-bottom: 1rem;">Pareja 2: Adriana Vargas - John Díaz</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Año de Nacimiento - Adriana Vargas</label>
+                            <input type="number" id="dob-jugador2a" placeholder="Ej: 2000" min="1900" max="2020" maxlength="4">
+                            <span id="status-2a" style="display: none; margin-top: 0.5rem; font-weight: 600;"></span>
+                        </div>
+                        <div class="form-group">
+                            <label>Año de Nacimiento - John Díaz</label>
+                            <input type="number" id="dob-jugador2b" placeholder="Ej: 1997" min="1900" max="2020" maxlength="4">
+                            <span id="status-2b" style="display: none; margin-top: 0.5rem; font-weight: 600;"></span>
+                        </div>
+                    </div>
+                    <div id="pareja2-status" style="display: none; padding: 0.75rem; border-radius: 6px; margin-top: 0.5rem; text-align: center; font-weight: 600;">
+                    </div>
+                </div>
+
+                <div id="validation-complete" style="display: none; background: #dcfce7; border: 2px solid #10b981; padding: 1rem; border-radius: 8px; margin-top: 1rem; text-align: center;">
+                    <strong style="color: #166534; font-size: 1.1rem;">✓ Ambas parejas han validado el resultado</strong>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button id="btn-guardar" class="btn btn-success" onclick="showValidation()">📝 Continuar a Validación</button>
+                <button id="btn-confirmar" class="btn btn-primary" onclick="confirmResult()" style="display: none;">✓ Confirmar y Guardar Resultado</button>
+                <button class="btn btn-secondary">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- Rankings -->
+        <div id="rankings" class="screen">
+            <h1 class="screen-title">🏅 Rankings - Dobles Mixtos</h1>
+            
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3>Ranking General</h3>
+                    <div>
+                        <select style="padding: 0.5rem; border: 2px solid #e5e7eb; border-radius: 6px;">
+                            <option>Dobles Mixtos</option>
+                            <option>Singles Masculino</option>
+                            <option>Singles Femenino</option>
+                            <option>Dobles Masculino</option>
+                            <option>Dobles Femenino</option>
+                        </select>
+                    </div>
+                </div>
+
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Pos</th>
+                            <th>Pareja</th>
+                            <th>Club</th>
+                            <th>Puntos</th>
+                            <th>Torneos</th>
+                            <th>V-D</th>
+                            <th>Cambio</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>1</strong></td>
+                            <td>Gilianie Ávila Vélez - Jerall A Montijo Rivera</td>
+                            <td>-</td>
+                            <td><strong>4,087</strong></td>
+                            <td>5</td>
+                            <td>12-3</td>
+                            <td style="color: #10b981;">▲ 2</td>
+                        </tr>
+                        <tr>
+                            <td><strong>2</strong></td>
+                            <td>Kristal A Meléndez Lafontaine - Axel Torres Torres</td>
+                            <td>-</td>
+                            <td><strong>3,812</strong></td>
+                            <td>6</td>
+                            <td>15-5</td>
+                            <td style="color: #10b981;">▲ 1</td>
+                        </tr>
+                        <tr>
+                            <td><strong>3</strong></td>
+                            <td>Alahia Medina García - Ryan R Cuadro Pérez</td>
+                            <td>-</td>
+                            <td><strong>3,654</strong></td>
+                            <td>4</td>
+                            <td>10-4</td>
+                            <td style="color: #ef4444;">▼ 1</td>
+                        </tr>
+                        <tr>
+                            <td><strong>4</strong></td>
+                            <td>Liara Rivera Rodriguez - Chrisnomar Avilés Pérez</td>
+                            <td>-</td>
+                            <td><strong>3,521</strong></td>
+                            <td>5</td>
+                            <td>11-6</td>
+                            <td style="color: #6b7280;">-</td>
+                        </tr>
+                        <tr>
+                            <td><strong>5</strong></td>
+                            <td>Adriana Y Vargas Acevedo - John Díaz Marrero</td>
+                            <td>-</td>
+                            <td><strong>3,425</strong></td>
+                            <td>6</td>
+                            <td>13-7</td>
+                            <td style="color: #10b981;">▲ 3</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-primary">📊 Ver Estadísticas Detalladas</button>
+                <button class="btn btn-secondary">📥 Exportar Ranking</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simular base de datos de jugadores con años de nacimiento
+        const jugadoresDB = {
+            'Gilianie Ávila Vélez': 1998,
+            'Jerall A Montijo Rivera': 1995,
+            'Adriana Y Vargas Acevedo': 2000,
+            'John Díaz Marrero': 1997
+        };
+
+        let validaciones = {
+            jugador1a: false,
+            jugador1b: false,
+            jugador2a: false,
+            jugador2b: false
+        };
+
+        function showScreen(screenId) {
+            // Ocultar todas las pantallas
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            
+            // Mostrar la pantalla seleccionada
+            document.getElementById(screenId).classList.add('active');
+            
+            // Actualizar botones activos
+            document.querySelectorAll('.screen-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Scroll al inicio
+            window.scrollTo(0, 0);
+        }
+
+        function showValidation() {
+            document.getElementById('validation-section').style.display = 'block';
+            document.getElementById('btn-guardar').style.display = 'none';
+            
+            // Agregar event listeners para validación en tiempo real
+            document.getElementById('dob-jugador1a').addEventListener('input', function() {
+                if (this.value.length === 4) {
+                    validatePlayer('Gilianie Ávila Vélez', parseInt(this.value), 'status-1a', 'jugador1a');
+                }
+            });
+            
+            document.getElementById('dob-jugador1b').addEventListener('input', function() {
+                if (this.value.length === 4) {
+                    validatePlayer('Jerall A Montijo Rivera', parseInt(this.value), 'status-1b', 'jugador1b');
+                }
+            });
+            
+            document.getElementById('dob-jugador2a').addEventListener('input', function() {
+                if (this.value.length === 4) {
+                    validatePlayer('Adriana Y Vargas Acevedo', parseInt(this.value), 'status-2a', 'jugador2a');
+                }
+            });
+            
+            document.getElementById('dob-jugador2b').addEventListener('input', function() {
+                if (this.value.length === 4) {
+                    validatePlayer('John Díaz Marrero', parseInt(this.value), 'status-2b', 'jugador2b');
+                }
+            });
+            
+            // Scroll hasta la sección de validación
+            document.getElementById('validation-section').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function validatePlayer(nombre, añoIngresado, statusId, validacionKey) {
+            const statusElement = document.getElementById(statusId);
+            statusElement.style.display = 'block';
+            
+            if (jugadoresDB[nombre] === añoIngresado) {
+                statusElement.textContent = '✓ Verificado';
+                statusElement.style.color = '#10b981';
+                validaciones[validacionKey] = true;
+            } else {
+                statusElement.textContent = '✗ Año incorrecto';
+                statusElement.style.color = '#ef4444';
+                validaciones[validacionKey] = false;
+            }
+            
+            checkParejaStatus();
+            checkAllValidations();
+        }
+
+        function checkParejaStatus() {
+            // Verificar Pareja 1
+            const pareja1Status = document.getElementById('pareja1-status');
+            if (validaciones.jugador1a && validaciones.jugador1b) {
+                pareja1Status.style.display = 'block';
+                pareja1Status.style.background = '#dcfce7';
+                pareja1Status.style.color = '#166534';
+                pareja1Status.textContent = '✓ Pareja 1 validada correctamente';
+            } else if (document.getElementById('dob-jugador1a').value.length === 4 && document.getElementById('dob-jugador1b').value.length === 4) {
+                pareja1Status.style.display = 'block';
+                pareja1Status.style.background = '#fee2e2';
+                pareja1Status.style.color = '#991b1b';
+                pareja1Status.textContent = '✗ Verificación incompleta - revisa los años';
+            }
+            
+            // Verificar Pareja 2
+            const pareja2Status = document.getElementById('pareja2-status');
+            if (validaciones.jugador2a && validaciones.jugador2b) {
+                pareja2Status.style.display = 'block';
+                pareja2Status.style.background = '#dcfce7';
+                pareja2Status.style.color = '#166534';
+                pareja2Status.textContent = '✓ Pareja 2 validada correctamente';
+            } else if (document.getElementById('dob-jugador2a').value.length === 4 && document.getElementById('dob-jugador2b').value.length === 4) {
+                pareja2Status.style.display = 'block';
+                pareja2Status.style.background = '#fee2e2';
+                pareja2Status.style.color = '#991b1b';
+                pareja2Status.textContent = '✗ Verificación incompleta - revisa los años';
+            }
+        }
+
+        function checkAllValidations() {
+            const allValid = validaciones.jugador1a && validaciones.jugador1b && 
+                           validaciones.jugador2a && validaciones.jugador2b;
+            
+            if (allValid) {
+                document.getElementById('validation-complete').style.display = 'block';
+                document.getElementById('btn-confirmar').style.display = 'inline-block';
+            } else {
+                document.getElementById('validation-complete').style.display = 'none';
+                document.getElementById('btn-confirmar').style.display = 'none';
+            }
+        }
+
+        function confirmResult() {
+            // Aquí iría la lógica para guardar en la base de datos
+            alert('✓ Resultado confirmado y guardado exitosamente!\n\nEl árbitro Carlos Rodríguez ha registrado el resultado.\nAmbas parejas han validado con su año de nacimiento.\n\nEl cuadro y ranking se actualizarán automáticamente.');
+            
+            // Resetear el formulario
+            document.getElementById('validation-section').style.display = 'none';
+            document.getElementById('btn-guardar').style.display = 'inline-block';
+            document.getElementById('btn-confirmar').style.display = 'none';
+            
+            // Resetear validaciones
+            validaciones = {
+                jugador1a: false,
+                jugador1b: false,
+                jugador2a: false,
+                jugador2b: false
+            };
+            
+            // Limpiar campos
+            document.querySelectorAll('input[type="number"]').forEach(input => {
+                if (input.id.startsWith('dob-')) {
+                    input.value = '';
+                }
+            });
+            
+            document.querySelectorAll('[id^="status-"]').forEach(el => {
+                el.style.display = 'none';
+            });
+            
+            document.getElementById('pareja1-status').style.display = 'none';
+            document.getElementById('pareja2-status').style.display = 'none';
+            document.getElementById('validation-complete').style.display = 'none';
+        }
+
+        function updateMatchStatus() {
+            // Función para actualizar cuando cambian los selects
+            console.log('Partido actualizado');
+        }
+    </script>
+</body>
+</html>

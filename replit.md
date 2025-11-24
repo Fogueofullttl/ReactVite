@@ -33,9 +33,44 @@
   - Confirmación visual con CheckCircle/XCircle
   - Tracking de intentos por jugador
   - Auto-confirmación cuando todos validan
-  - ⚠️ **PENDIENTE:** Integrar en página de scoring de partidos
+  - ✅ **INTEGRADO** en página de scoring de partidos
 
-#### 4. **Firebase Setup**
+#### 4. **Sistema de Scoring de Partidos** ⭐ NUEVO
+- ✅ **Dashboard de Árbitro** (`/arbitro`)
+  - Muestra todos los partidos disponibles (pendientes y completados)
+  - Estadísticas en tiempo real
+  - Navegación rápida a scoring
+- ✅ **Página de Scoring** (`/arbitro/match/:matchId`)
+  - Formulario de sets (hasta 5 sets, 11+ puntos, diferencia de 2)
+  - Validación automática de reglas de tenis de mesa
+  - Resumen visual del resultado
+  - **Validación dual de año de nacimiento** integrada (CRÍTICO)
+  - Confirmación final solo después de validar identidad
+- ✅ **Sistema de Rating Automático (ELO)**
+  - K-factor: 32
+  - Fórmula: `Expected = 1 / (1 + 10^((opponentRating - playerRating)/400))`
+  - Cambio: `K * (Actual - Expected)`
+  - Actualización automática al confirmar partido
+  - Historial completo guardado en `ratingHistory`
+- ✅ **APIs Backend**
+  - `GET /api/matches/arbitro` - Todos los partidos con players y tournament
+  - `GET /api/matches/:id` - Partido específico con detalles completos
+  - `POST /api/matches/:id/result` - Guardar resultado y actualizar ratings
+- ✅ **Datos Seed**
+  - 2 partidos de ejemplo (Carlos vs María, José vs Ana)
+  - 5 jugadores con ratings (1850-1745)
+- ✅ **Testing E2E**
+  - Test completo verificado exitosamente
+  - Flujo: Dashboard → Scoring → Validación → Confirmación → Ratings actualizados
+  - Carlos Rivera: 1850 → 1865 (+15)
+  - María González: 1820 → 1805 (-15)
+
+**Nota sobre Autenticación:**
+- Actualmente, `/api/matches/arbitro` devuelve **todos** los partidos del sistema
+- Para producción, se implementará filtrado por árbitro autenticado (Firebase Auth)
+- Estructura preparada para agregar `refereeId` filtering cuando se integre autenticación
+
+#### 5. **Firebase Setup**
 - ✅ Firebase configurado (`client/src/lib/firebase.ts`)
 - ✅ Firestore helpers creados (`client/src/lib/firestore-helpers.ts`)
 - ✅ Secrets configurados: VITE_FIREBASE_API_KEY, VITE_FIREBASE_PROJECT_ID, etc.
@@ -49,7 +84,8 @@
 
 1. **✅ Validación de Año de Nacimiento**
    - Componente creado ✅
-   - Integración en scoring ⏳
+   - Integración en scoring ✅
+   - Testing E2E completado ✅
 
 2. **⏳ Sistema de Pago ATH Móvil**
    - Código de 5 caracteres (mayúsculas/números)
@@ -57,12 +93,14 @@
    - Estados: pending → verified/rejected
    - Schema: `paymentCode` y `paymentStatus` ya existen
 
-3. **⏳ Sistema de Rating FPTM**
-   - Fórmula: `newRating = oldRating + K * (S - E)`
-   - K-factor: 32 (estándar)
+3. **✅ Sistema de Rating FPTM**
+   - Fórmula implementada: `newRating = oldRating + K * (S - E)`
+   - K-factor: 32 (estándar ELO)
    - E (expected): `1 / (1 + 10^((opponentRating - playerRating)/400))`
-   - S (score): 1 (victoria), 0.5 (empate), 0 (derrota)
-   - Schema: `ratingHistory` tabla ya existe
+   - S (score): 1 (victoria), 0 (derrota)
+   - Actualización automática al completar partido
+   - Historial completo en `ratingHistory` tabla
+   - Testing verificado: ratings cambian correctamente
 
 4. **⏳ Generación de Número de Miembro**
    - Formato: `PRTTM-000123`
@@ -84,11 +122,12 @@
    - Generación automática de brackets
    - Singles/Doubles support
 
-7. **⏳ Scoring de Partidos**
-   - Interfaz para árbitro
-   - **Validación dual de año de nacimiento** (CRÍTICO)
-   - Actualización automática de rating
-   - Tracking de estadísticas
+7. **✅ Scoring de Partidos**
+   - ✅ Interfaz para árbitro (`/arbitro`, `/arbitro/match/:matchId`)
+   - ✅ **Validación dual de año de nacimiento** (CRÍTICO - implementado)
+   - ✅ Actualización automática de rating (ELO K=32)
+   - ✅ Dashboard con estadísticas
+   - ⏳ Tracking de estadísticas avanzadas (pendiente)
 
 ### 🟢 PRIORIDAD MEDIA
 
@@ -127,10 +166,13 @@ proyecto/
 │   ├── pages/
 │   │   ├── home.tsx           # Página de inicio
 │   │   ├── tournaments.tsx    # Lista de torneos
-│   │   └── rankings.tsx       # Rankings de jugadores
+│   │   ├── rankings.tsx       # Rankings de jugadores
+│   │   └── arbitro/
+│   │       ├── dashboard.tsx  # ⭐ Dashboard de árbitro
+│   │       └── match-scoring.tsx  # ⭐ Scoring de partidos
 │   ├── components/
 │   │   ├── app-sidebar.tsx    # Navegación principal
-│   │   └── birth-year-validation.tsx  # ⭐ Componente crítico
+│   │   └── birth-year-validation.tsx  # ⭐ Validación crítica
 │   └── lib/
 │       ├── firebase.ts        # Firebase config
 │       └── firestore-helpers.ts  # Firestore CRUD helpers
@@ -142,23 +184,27 @@ proyecto/
 
 ## 🛠️ PRÓXIMOS PASOS RECOMENDADOS
 
-### Fase 1: Completar Features Críticas (1-2 días)
+### Fase 1: ✅ Features Críticas COMPLETADAS
 
-1. **Integrar Validación de Año de Nacimiento**
-   - Crear página `/arbitro/match/:id`
-   - Formulario de scoring con sets/puntos
-   - Integrar `<BirthYearValidation />` antes de confirmar
-   - Al confirmar: actualizar rating automáticamente
+1. **✅ Sistema de Scoring Completo**
+   - ✅ Página `/arbitro/match/:id` creada y funcional
+   - ✅ Formulario de scoring con sets/puntos (validación completa)
+   - ✅ `<BirthYearValidation />` integrado antes de confirmar
+   - ✅ Rating se actualiza automáticamente (ELO K=32)
+   - ✅ Testing E2E exitoso
+
+### Fase 1.5: Sistema ATH Móvil (PRÓXIMO)
 
 2. **Sistema de Pago ATH Móvil**
    - Agregar campo en formulario de registro
    - Crear página `/admin/registrations` para verificar pagos
    - Estados: Pending (amarillo), Verified (verde), Rejected (rojo)
 
-3. **Sistema de Rating Automático**
-   - Implementar fórmula en `storage.ts`
-   - `updateMatchResult(matchId, scores, winnerId)` → auto-calcula rating
-   - Crear entrada en `ratingHistory` por cada partido
+3. **✅ Sistema de Rating Automático - COMPLETADO**
+   - ✅ Fórmula implementada en `storage.ts`
+   - ✅ `updateMatchAndRatings()` calcula rating automáticamente
+   - ✅ Crea entrada en `ratingHistory` por cada partido
+   - ✅ Verificado con test E2E (Carlos +15, María -15)
 
 ### Fase 2: Firebase Authentication (2-3 días)
 
@@ -290,7 +336,9 @@ npm run dev
 ### Issues Conocidos
 - ✅ Rankings vacíos → Resuelto (filtro por rol "jugador")
 - ✅ Roles en inglés → Resuelto (todos en español)
+- ✅ Sistema de scoring → Completado (validación + ratings)
 - ⏳ Firebase Auth no integrado (pendiente Fase 2)
+- ⏳ Filtrado de partidos por árbitro autenticado (requiere Firebase Auth primero)
 
 ### Contacto
 - Usuario: FPTM
@@ -299,4 +347,12 @@ npm run dev
 
 ---
 
-**ÚLTIMA REVISIÓN ARQUITECTÓNICA:** 24 nov 2025 - Arquitecto confirmó: mantener MemStorage, agregar features FPTM, migrar Firestore después.
+**ÚLTIMAS REVISIONES ARQUITECTÓNICAS:**
+- **24 nov 2025 09:00** - Arquitecto confirmó: mantener MemStorage, agregar features FPTM, migrar Firestore después
+- **24 nov 2025 21:40** - Sistema de scoring completado y revisado:
+  - ✅ Página de scoring funcional con validación de sets
+  - ✅ BirthYearValidation integrado correctamente
+  - ✅ Sistema ELO implementado y verificado
+  - ✅ APIs y storage correctamente estructurados
+  - ✅ Test E2E pasó exitosamente
+  - ⚠️ Nota: Para producción, agregar autenticación y filtrado por árbitro
