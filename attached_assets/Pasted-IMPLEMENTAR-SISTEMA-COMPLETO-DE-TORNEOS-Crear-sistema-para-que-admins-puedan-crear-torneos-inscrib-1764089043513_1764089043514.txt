@@ -1,0 +1,553 @@
+IMPLEMENTAR SISTEMA COMPLETO DE TORNEOS
+
+Crear sistema para que admins puedan crear torneos, inscribir jugadores, y generar sorteos automáticos.
+
+PARTE 1: BASE DE DATOS Y TIPOS
+
+Estructura de Firestore:
+tournaments/{tournamentId}
+
+id: string
+name: string
+venue: string
+date: Date
+time: string (HH:MM)
+status: "draft" | "registration_open" | "registration_closed" | "in_progress" | "completed"
+type: "singles_male" | "singles_female" | "doubles_male" | "doubles_female" | "doubles_mixed"
+category: string (ej: "U13", "U18", "Open", "Elite")
+
+
+config: {
+maxParticipants: number | null
+registrationDeadline: Date
+participationFee: number
+requiresActiveMembership: boolean
+drawType: "automatic" | "manual"
+groupStage: {
+enabled: boolean
+playersPerGroup: 3 | 4 | 5
+advancePerGroup: 1 | 2 | 3 | 4
+}
+eliminationStage: {
+enabled: boolean
+format: "single_elimination"
+}
+}
+
+registrations: Array<{
+userId: string (singles) o [uid1, uid2] (doubles)
+registeredAt: Date
+paymentStatus: "unpaid" | "paid"
+paymentCode: string
+status: "pending" | "confirmed"
+}>
+draw: {
+groups: Array<{
+groupId: "A" | "B" | "C" ...
+participants: string[] (user uids)
+matchIds: string[] (referencias a matches)
+}>
+eliminationBracket: {
+round: "round_of_16" | "quarterfinals" | "semifinals" | "final"
+matchIds: string[]
+}
+} | null
+director: string (uid) | null
+createdBy: string (uid)
+createdAt: Date
+updatedAt: Date
+
+
+PARTE 2: PÁGINA ADMIN - CREAR TORNEO
+
+Crear: client/src/pages/admin/create-tournament.tsx
+```tsx
+import { useState } from 'react';
+import { useNavigate } from 'wouter';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/hooks/use-toast';
+import { createTournament } from '@/lib/tournaments';
+import { useAuth } from '@/contexts/auth-context';
+
+export default function CreateTournament() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    venue: '',
+    date: '',
+    time: '12:00',
+    type: 'singles_male' as const,
+    category: 'Open',
+    maxParticipants: '',
+    registrationDeadline: '',
+    participationFee: '0',
+    requiresActiveMembership: true,
+    drawType: 'automatic' as const,
+    groupStageEnabled: true,
+    playersPerGroup: '4',
+    advancePerGroup: '2',
+    eliminationEnabled: true
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const tournamentId = await createTournament({
+        name: formData.name,
+        venue: formData.venue,
+        date: new Date(formData.date),
+        time: formData.time,
+        status: 'draft',
+        type: formData.type,
+        category: formData.category,
+        config: {
+          maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : null,
+          registrationDeadline: new Date(formData.registrationDeadline),
+          participationFee: parseFloat(formData.participationFee),
+          requiresActiveMembership: formData.requiresActiveMembership,
+          drawType: formData.drawType,
+          groupStage: {
+            enabled: formData.groupStageEnabled,
+            playersPerGroup: parseInt(formData.playersPerGroup) as 3 | 4 | 5,
+            advancePerGroup: parseInt(formData.advancePerGroup) as 1 | 2 | 3 | 4
+          },
+          eliminationStage: {
+            enabled: formData.eliminationEnabled,
+            format: 'single_elimination'
+          }
+        },
+        registrations: [],
+        draw: null,
+        director: null,
+        createdBy: user!.uid
+      });
+
+      toast({ title: 'Torneo creado exitosamente' });
+      navigate(`/admin/tournaments/${tournamentId}`);
+      
+    } catch (error) {
+      toast({ title: 'Error al crear torneo', variant: 'destructive' });
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-6">Crear Nuevo Torneo</h1>
+
+      <form onSubmit={handleSubmit}>
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Información General</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Nombre del Torneo *</Label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  placeholder="Ej: Campeonato Nacional 2025"
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label>Tipo de Torneo *</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value: any) => setFormData({...formData, type: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="singles_male">Singles Masculino</SelectItem>
+                    <SelectItem value="singles_female">Singles Femenino</SelectItem>
+                    <SelectItem value="doubles_male">Dobles Masculino</SelectItem>
+                    <SelectItem value="doubles_female">Dobles Femenino</SelectItem>
+                    <SelectItem value="doubles_mixed">Dobles Mixtos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Categoría</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => setFormData({...formData, category: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="U13">Sub-13</SelectItem>
+                    <SelectItem value="U18">Sub-18</SelectItem>
+                    <SelectItem value="Open">Abierto</SelectItem>
+                    <SelectItem value="Elite">Elite</SelectItem>
+                    <SelectItem value="Senior">Senior (+40)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Sede *</Label>
+                <Input
+                  value={formData.venue}
+                  onChange={(e) => setFormData({...formData, venue: e.target.value})}
+                  placeholder="Coliseo, dirección"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label>Fecha *</Label>
+                <Input
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData({...formData, date: e.target.value})}
+                  required
+                />
+              </div>
+
+              <div>
+                <Label>Hora</Label>
+                <Input
+                  type="time"
+                  value={formData.time}
+                  onChange={(e) => setFormData({...formData, time: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <Label>Fecha Límite Inscripción *</Label>
+                <Input
+                  type="date"
+                  value={formData.registrationDeadline}
+                  onChange={(e) => setFormData({...formData, registrationDeadline: e.target.value})}
+                  required
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Configuración de Inscripción</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Límite de Participantes</Label>
+                <Input
+                  type="number"
+                  value={formData.maxParticipants}
+                  onChange={(e) => setFormData({...formData, maxParticipants: e.target.value})}
+                  placeholder="Dejar vacío para sin límite"
+                />
+              </div>
+
+              <div>
+                <Label>Cuota de Participación ($)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.participationFee}
+                  onChange={(e) => setFormData({...formData, participationFee: e.target.value})}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                checked={formData.requiresActiveMembership}
+                onCheckedChange={(checked) => 
+                  setFormData({...formData, requiresActiveMembership: checked as boolean})
+                }
+              />
+              <Label>Requiere membresía activa</Label>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Formato de Competencia</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Tipo de Sorteo</Label>
+              <Select
+                value={formData.drawType}
+                onValueChange={(value: any) => setFormData({...formData, drawType: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="automatic">Automático (por ranking)</SelectItem>
+                  <SelectItem value="manual">Manual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-4 border-t pt-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  checked={formData.groupStageEnabled}
+                  onCheckedChange={(checked) => 
+                    setFormData({...formData, groupStageEnabled: checked as boolean})
+                  }
+                />
+                <Label className="font-semibold">Fase de Grupos (Round Robin)</Label>
+              </div>
+
+              {formData.groupStageEnabled && (
+                <div className="grid grid-cols-2 gap-4 ml-6">
+                  <div>
+                    <Label>Jugadores por Grupo</Label>
+                    <Select
+                      value={formData.playersPerGroup}
+                      onValueChange={(value) => setFormData({...formData, playersPerGroup: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="3">3 jugadores</SelectItem>
+                        <SelectItem value="4">4 jugadores</SelectItem>
+                        <SelectItem value="5">5 jugadores</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Clasifican por Grupo</Label>
+                    <Select
+                      value={formData.advancePerGroup}
+                      onValueChange={(value) => setFormData({...formData, advancePerGroup: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Top 1</SelectItem>
+                        <SelectItem value="2">Top 2</SelectItem>
+                        <SelectItem value="3">Top 3</SelectItem>
+                        <SelectItem value="4">Todos (Top 4)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-2 border-t pt-4">
+              <Checkbox
+                checked={formData.eliminationEnabled}
+                onCheckedChange={(checked) => 
+                  setFormData({...formData, eliminationEnabled: checked as boolean})
+                }
+              />
+              <Label className="font-semibold">Fase de Eliminación</Label>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex gap-4">
+          <Button type="submit" size="lg">
+            Crear Torneo
+          </Button>
+          <Button type="button" variant="outline" size="lg" onClick={() => navigate('/admin/tournaments')}>
+            Cancelar
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+```
+
+PARTE 3: FUNCIONES DE GESTIÓN DE TORNEOS
+
+Crear: client/src/lib/tournaments.ts
+```typescript
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc,
+  getDocs,
+  updateDoc,
+  query,
+  where,
+  Timestamp
+} from 'firebase/firestore';
+import { db } from './firebase';
+
+export interface Tournament {
+  id?: string;
+  name: string;
+  venue: string;
+  date: Date;
+  time: string;
+  status: 'draft' | 'registration_open' | 'registration_closed' | 'in_progress' | 'completed';
+  type: 'singles_male' | 'singles_female' | 'doubles_male' | 'doubles_female' | 'doubles_mixed';
+  category: string;
+  config: {
+    maxParticipants: number | null;
+    registrationDeadline: Date;
+    participationFee: number;
+    requiresActiveMembership: boolean;
+    drawType: 'automatic' | 'manual';
+    groupStage: {
+      enabled: boolean;
+      playersPerGroup: 3 | 4 | 5;
+      advancePerGroup: 1 | 2 | 3 | 4;
+    };
+    eliminationStage: {
+      enabled: boolean;
+      format: 'single_elimination';
+    };
+  };
+  registrations: Array<{
+    userId: string | string[]; // string para singles, string[] para dobles
+    registeredAt: Date;
+    paymentStatus: 'unpaid' | 'paid';
+    paymentCode?: string;
+    status: 'pending' | 'confirmed';
+  }>;
+  draw: {
+    groups: Array<{
+      groupId: string;
+      participants: string[];
+      matchIds: string[];
+    }>;
+    eliminationBracket: {
+      round: string;
+      matchIds: string[];
+    };
+  } | null;
+  director: string | null;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Crear torneo
+export async function createTournament(tournament: Omit<Tournament, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  const tournamentsRef = collection(db, 'tournaments');
+  const docRef = doc(tournamentsRef);
+  
+  await setDoc(docRef, {
+    ...tournament,
+    date: Timestamp.fromDate(tournament.date),
+    config: {
+      ...tournament.config,
+      registrationDeadline: Timestamp.fromDate(tournament.config.registrationDeadline)
+    },
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now()
+  });
+  
+  return docRef.id;
+}
+
+// Obtener torneo
+export async function getTournament(tournamentId: string): Promise<Tournament | null> {
+  const docRef = doc(db, 'tournaments', tournamentId);
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      ...data,
+      date: data.date?.toDate(),
+      config: {
+        ...data.config,
+        registrationDeadline: data.config.registrationDeadline?.toDate()
+      },
+      createdAt: data.createdAt?.toDate(),
+      updatedAt: data.updatedAt?.toDate()
+    } as Tournament;
+  }
+  
+  return null;
+}
+
+// Obtener todos los torneos
+export async function getAllTournaments(): Promise<Tournament[]> {
+  const snapshot = await getDocs(collection(db, 'tournaments'));
+  return snapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      date: data.date?.toDate(),
+      config: {
+        ...data.config,
+        registrationDeadline: data.config.registrationDeadline?.toDate()
+      },
+      createdAt: data.createdAt?.toDate(),
+      updatedAt: data.updatedAt?.toDate()
+    } as Tournament;
+  });
+}
+
+// Abrir inscripciones
+export async function openRegistration(tournamentId: string): Promise<void> {
+  await updateDoc(doc(db, 'tournaments', tournamentId), {
+    status: 'registration_open',
+    updatedAt: Timestamp.now()
+  });
+}
+
+// Cerrar inscripciones
+export async function closeRegistration(tournamentId: string): Promise<void> {
+  await updateDoc(doc(db, 'tournaments', tournamentId), {
+    status: 'registration_closed',
+    updatedAt: Timestamp.now()
+  });
+}
+
+// Inscribir jugador
+export async function registerPlayer(
+  tournamentId: string,
+  userId: string | string[],
+  paymentCode?: string
+): Promise<void> {
+  const tournament = await getTournament(tournamentId);
+  if (!tournament) throw new Error('Torneo no encontrado');
+  
+  const newRegistration = {
+    userId,
+    registeredAt: new Date(),
+    paymentStatus: paymentCode ? 'paid' : 'unpaid' as const,
+    paymentCode,
+    status: 'pending' as const
+  };
+  
+  await updateDoc(doc(db, 'tournaments', tournamentId), {
+    registrations: [...tournament.registrations, newRegistration],
+    updatedAt: Timestamp.now()
+  });
+}
+```
+
+CONTINÚA CON PARTE 4 (Sorteo Automático) en el siguiente mensaje.
+
+Implementa PARTE 1, 2 y 3 primero.

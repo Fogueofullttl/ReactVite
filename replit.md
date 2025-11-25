@@ -61,6 +61,14 @@ The system employs a client-server architecture.
     -   **ATH Móvil Payment System:** Full workflow for manual admin verification of 5-character alphanumeric reference codes.
     -   **Multi-Event Tournament Registration:** Players can register for multiple events within a single tournament using checkbox selection, with validation and display in the admin interface.
     -   **Member Number Generation:** Automatic, auto-incrementing member numbers in the format `PRTTM-000001` using Firestore transaction-based counter for uniqueness under concurrency.
+    -   **Tournament Management System (Firestore):** Complete tournament creation and management system for admins (`client/src/lib/tournaments.ts`). Features:
+        -   **Zod Schema Validation:** Robust schema in `client/src/lib/schemas/tournament.ts` for type-safe tournament data validation
+        -   **Tournament Creation:** Admin interface (`/admin/tournaments/create`) with comprehensive form for tournament configuration
+        -   **Tournament Structure:** Supports singles/doubles (male/female/mixed), multiple categories (U13, U18, Open, Elite, Senior), configurable group stage and elimination formats
+        -   **Registration Management:** Atomic registration system using Firestore `arrayUnion` for concurrent player registrations
+        -   **Date Validation:** Strict enforcement of registration deadline before tournament date
+        -   **Firestore Collections:** Tournaments stored in `tournaments` collection with proper Timestamp conversions for all date fields
+        -   **Admin Navigation:** Dedicated "Crear Torneo" link in admin sidebar for easy access
 -   **System Design Choices:**
     -   **Modular Design:** Clear separation between `shared`, `server`, and `client` directories.
     -   **Full Firebase Integration:** Firebase Auth + Firestore for complete data persistence (users, matches). Backend uses in-memory `MemStorage` for tournaments/registrations (migration planned).
@@ -70,7 +78,7 @@ The system employs a client-server architecture.
 ## External Dependencies
 -   **Firebase:** Actively used for authentication (Firebase Auth) and user profile storage (Firestore). Configured services:
     -   **Firebase Auth:** Email/password authentication and Google OAuth provider
-    -   **Firestore:** `users` collection for user profiles, `counters` collection for member number generation
+    -   **Firestore:** `users` collection for user profiles, `counters` collection for member number generation, `matches` collection for match data with real-time subscriptions, `notifications` collection for player alerts, `tournaments` collection for tournament management
     -   **Firebase Storage:** Configured but not yet actively used for profile photos
 -   **ATH Móvil:** Integrated for payment processing.
 -   **Shadcn UI:** Frontend component library.
