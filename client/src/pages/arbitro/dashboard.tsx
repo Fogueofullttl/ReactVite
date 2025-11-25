@@ -16,17 +16,17 @@ export default function ArbitroDashboard() {
   }, []);
 
   const refereeMatches = matches.filter(m => m.referee === user?.id);
-  const pendingMatches = refereeMatches.filter(m => m.status === 'pending');
-  const completedMatches = refereeMatches.filter(m => m.status === 'completed');
+  const pendingMatches = refereeMatches.filter(m => m.status === 'pending_result');
+  const completedMatches = refereeMatches.filter(m => m.status === 'verified');
 
   const completedTodayCount = completedMatches.filter(m => {
-    if (!m.result) return false;
+    if (!m.verifiedAt) return false;
     const today = new Date();
-    const enteredDate = new Date(m.result.enteredAt);
+    const verifiedDate = new Date(m.verifiedAt);
     return (
-      enteredDate.getDate() === today.getDate() &&
-      enteredDate.getMonth() === today.getMonth() &&
-      enteredDate.getFullYear() === today.getFullYear()
+      verifiedDate.getDate() === today.getDate() &&
+      verifiedDate.getMonth() === today.getMonth() &&
+      verifiedDate.getFullYear() === today.getFullYear()
     );
   }).length;
 

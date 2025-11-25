@@ -22,9 +22,12 @@ import MyMatches from "@/pages/my-matches";
 import ArbitroDashboard from "@/pages/arbitro/dashboard";
 import ArbitroMatches from "@/pages/arbitro/matches";
 import MatchScoring from "@/pages/arbitro/match-scoring";
+import JugadorDashboard from "@/pages/jugador/dashboard";
+import JugadorMatchScoring from "@/pages/jugador/match-scoring";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsers from "@/pages/admin/users";
 import AdminRegistrations from "@/pages/admin/registrations";
+import AdminVerifyResults from "@/pages/admin/verify-results";
 import OwnerDashboard from "@/pages/owner/dashboard";
 import OwnerAnalytics from "@/pages/owner/analytics";
 import OwnerUsers from "@/pages/owner/users";
@@ -47,9 +50,12 @@ function Router() {
       <Route path="/arbitro/dashboard" component={ArbitroDashboard} />
       <Route path="/arbitro/matches" component={ArbitroMatches} />
       <Route path="/arbitro/match/:matchId" component={MatchScoring} />
+      <Route path="/jugador/dashboard" component={JugadorDashboard} />
+      <Route path="/jugador/match/:matchId" component={JugadorMatchScoring} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/registrations" component={AdminRegistrations} />
+      <Route path="/admin/verify-results" component={AdminVerifyResults} />
       <Route path="/owner" component={OwnerDashboard} />
       <Route path="/owner/analytics" component={OwnerAnalytics} />
       <Route path="/owner/users" component={OwnerUsers} />

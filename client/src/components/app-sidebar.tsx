@@ -55,8 +55,8 @@ const menuItemsByRole: Record<string, Array<{ title: string; url: string; icon: 
   ],
   jugador: [
     { title: "Panel", url: "/dashboard", icon: Home },
+    { title: "Mis Partidos", url: "/jugador/dashboard", icon: Calendar },
     { title: "Torneos", url: "/tournaments", icon: Trophy },
-    { title: "Mis Partidos", url: "/my-matches", icon: Calendar },
     { title: "Rankings", url: "/rankings", icon: TrendingUp },
     { title: "Perfil", url: "/profile", icon: User },
   ],
@@ -66,6 +66,7 @@ const menuItemsByRole: Record<string, Array<{ title: string; url: string; icon: 
   ],
   admin: [
     { title: "Dashboard Admin", url: "/admin/registrations", icon: Home },
+    { title: "Verificar Resultados", url: "/admin/verify-results", icon: Shield },
     { title: "Torneos", url: "/tournaments", icon: Trophy },
     { title: "Jugadores", url: "/admin/users", icon: Users },
     { title: "Pagos", url: "/admin/registrations", icon: Medal },
