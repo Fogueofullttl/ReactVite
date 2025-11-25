@@ -1,55 +1,62 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRoute, Link } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  getTournament, 
-  openRegistration, 
-  closeRegistration,
-  confirmRegistration,
-  generateDraw,
-  type Tournament 
-} from '@/lib/tournaments';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { queryClient, apiRequest } from '@/lib/queryClient';
+import { type Tournament } from '@/lib/tournaments';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Users, Trophy, Calendar, MapPin, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Users, Trophy, Calendar, MapPin, Clock, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+
+interface TournamentFromAPI {
+  id: string;
+  name: string;
+  type: string;
+  genderCategory?: string;
+  events?: string[];
+  registrationDeadline: string;
+  startDate: string;
+  endDate: string;
+  venue: string;
+  entryFee?: number;
+  maxParticipants?: number;
+  status: string;
+  createdBy?: string;
+  registrations?: Array<{ status: string; playerId?: string }>;
+  draw?: { groups: any[]; eliminationBracket?: { matchIds: string[]; round: string } };
+}
 
 export default function ManageTournament() {
   const [, params] = useRoute('/admin/tournaments/:id');
   const { toast } = useToast();
   
-  const [tournament, setTournament] = useState<Tournament | null>(null);
-  const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    loadTournament();
-  }, [params?.id]);
+  const { data: tournament, isLoading: loading, error } = useQuery<TournamentFromAPI>({
+    queryKey: ['/api/tournaments', params?.id],
+    enabled: !!params?.id
+  });
 
-  const loadTournament = async () => {
-    if (!params?.id) return;
-    
-    try {
-      const data = await getTournament(params.id);
-      setTournament(data);
-    } catch (error) {
-      toast({ title: 'Error al cargar torneo', variant: 'destructive' });
-    } finally {
-      setLoading(false);
+  const updateTournament = useMutation({
+    mutationFn: async (updates: Partial<TournamentFromAPI>) => {
+      return apiRequest('PATCH', `/api/tournaments/${params?.id}`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', params?.id] });
     }
-  };
+  });
 
   const handleOpenRegistration = async () => {
-    if (!tournament?.id) return;
+    if (!params?.id) return;
     
     setActionLoading(true);
     try {
-      await openRegistration(tournament.id);
-      await loadTournament();
+      await updateTournament.mutateAsync({ status: 'registration_open' });
       toast({ title: 'Inscripciones abiertas' });
     } catch (error) {
       toast({ title: 'Error', variant: 'destructive' });
@@ -59,12 +66,11 @@ export default function ManageTournament() {
   };
 
   const handleCloseRegistration = async () => {
-    if (!tournament?.id) return;
+    if (!params?.id) return;
     
     setActionLoading(true);
     try {
-      await closeRegistration(tournament.id);
-      await loadTournament();
+      await updateTournament.mutateAsync({ status: 'registration_closed' });
       toast({ title: 'Inscripciones cerradas' });
     } catch (error) {
       toast({ title: 'Error', variant: 'destructive' });
@@ -74,24 +80,27 @@ export default function ManageTournament() {
   };
 
   const handleConfirmRegistration = async (index: number) => {
-    if (!tournament?.id) return;
+    if (!params?.id || !tournament?.registrations) return;
     
     try {
-      await confirmRegistration(tournament.id, index);
-      await loadTournament();
-      toast({ title: 'Inscripcion confirmada' });
+      const updatedRegistrations = [...tournament.registrations];
+      if (index >= 0 && index < updatedRegistrations.length) {
+        updatedRegistrations[index] = { ...updatedRegistrations[index], status: 'confirmed' };
+        await updateTournament.mutateAsync({ registrations: updatedRegistrations });
+        toast({ title: 'Inscripcion confirmada' });
+      }
     } catch (error) {
       toast({ title: 'Error', variant: 'destructive' });
     }
   };
 
   const handleGenerateDraw = async () => {
-    if (!tournament?.id) return;
+    if (!params?.id) return;
     
     setGenerating(true);
     try {
-      await generateDraw(tournament.id);
-      await loadTournament();
+      await apiRequest('POST', `/api/tournaments/${params.id}/generate-draw`, {});
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', params?.id] });
       toast({ title: 'Sorteo generado exitosamente' });
     } catch (error: any) {
       toast({ title: error.message || 'Error al generar sorteo', variant: 'destructive' });
@@ -100,32 +109,36 @@ export default function ManageTournament() {
     }
   };
 
-  const getStatusBadge = (status: Tournament['status']) => {
-    const variants: Record<Tournament['status'], { variant: 'default' | 'secondary' | 'outline' | 'destructive'; label: string }> = {
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, { variant: 'default' | 'secondary' | 'outline' | 'destructive'; label: string }> = {
       'draft': { variant: 'secondary', label: 'Borrador' },
       'registration_open': { variant: 'default', label: 'Inscripciones Abiertas' },
       'registration_closed': { variant: 'outline', label: 'Inscripciones Cerradas' },
       'in_progress': { variant: 'default', label: 'En Progreso' },
       'completed': { variant: 'secondary', label: 'Completado' }
     };
-    return variants[status];
+    return variants[status] || { variant: 'secondary', label: status };
   };
 
-  const getTournamentTypeLabel = (type: Tournament['type']) => {
-    const labels: Record<Tournament['type'], string> = {
-      'singles_male': 'Singles Masculino',
-      'singles_female': 'Singles Femenino',
-      'doubles_male': 'Dobles Masculino',
-      'doubles_female': 'Dobles Femenino',
-      'doubles_mixed': 'Dobles Mixto'
-    };
-    return labels[type];
+  const getTournamentTypeLabel = (type: string, genderCategory?: string) => {
+    if (type === 'singles') {
+      if (genderCategory === 'male') return 'Singles Masculino';
+      if (genderCategory === 'female') return 'Singles Femenino';
+      return 'Singles Mixto';
+    }
+    if (type === 'doubles') {
+      if (genderCategory === 'male') return 'Dobles Masculino';
+      if (genderCategory === 'female') return 'Dobles Femenino';
+      return 'Dobles Mixto';
+    }
+    return type;
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64" data-testid="loading-state">
-        <div className="text-lg text-muted-foreground">Cargando...</div>
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-lg text-muted-foreground">Cargando...</span>
       </div>
     );
   }
@@ -152,6 +165,7 @@ export default function ManageTournament() {
   const statusBadge = getStatusBadge(tournament.status);
   const groups = tournament.draw?.groups || [];
   const eliminationMatchIds = tournament.draw?.eliminationBracket?.matchIds || [];
+  const tournamentDate = tournament.startDate ? new Date(tournament.startDate) : new Date();
 
   return (
     <div className="max-w-7xl mx-auto p-6">
@@ -172,20 +186,24 @@ export default function ManageTournament() {
             </span>
             <span className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
-              {format(tournament.date, 'PPP', { locale: es })}
+              {format(tournamentDate, 'PPP', { locale: es })}
             </span>
-            <span className="flex items-center gap-1">
-              <Clock className="w-4 h-4" />
-              {tournament.time}
-            </span>
+            {tournament.endDate && (
+              <span className="flex items-center gap-1">
+                <Clock className="w-4 h-4" />
+                {format(new Date(tournament.endDate), 'PPP', { locale: es })}
+              </span>
+            )}
           </div>
           <div className="flex gap-2 mt-3">
             <Badge variant="outline" data-testid="badge-tournament-type">
-              {getTournamentTypeLabel(tournament.type)}
+              {getTournamentTypeLabel(tournament.type, tournament.genderCategory)}
             </Badge>
-            <Badge variant="outline" data-testid="badge-tournament-category">
-              {tournament.category}
-            </Badge>
+            {tournament.events && tournament.events.length > 0 && (
+              <Badge variant="outline" data-testid="badge-tournament-events">
+                {tournament.events.length} eventos
+              </Badge>
+            )}
           </div>
         </div>
         
@@ -413,7 +431,7 @@ export default function ManageTournament() {
         <TabsContent value="bracket">
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground" data-testid="empty-bracket">
-              {tournament.config.groupStage.enabled ? (
+              {groups.length > 0 ? (
                 'Los brackets se generan despues de completar la fase de grupos'
               ) : eliminationMatchIds.length > 0 ? (
                 <div>
