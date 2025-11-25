@@ -1,4 +1,5 @@
 import { mockMatches as initialMatches, Match, MatchStatus } from "@/data/mockMatches";
+import { calculateRatingChange } from "./ratingSystem";
 
 let matches = [...initialMatches];
 
@@ -31,6 +32,13 @@ export const matchStore = {
     const player1Wins = sets.filter(s => s.player1 > s.player2).length;
     const player2Wins = sets.filter(s => s.player1 < s.player2).length;
     
+    // Calculate rating change using FPTM official system
+    const ratingChange = calculateRatingChange(
+      match.player1,
+      match.player2,
+      { sets, winner: winnerId }
+    );
+    
     const result = {
       sets,
       winner: winnerId,
@@ -41,12 +49,23 @@ export const matchStore = {
       },
       enteredBy,
       enteredAt: new Date(),
-      observations
+      observations,
+      ratingChange: {
+        player1: ratingChange.player1,
+        player2: ratingChange.player2,
+        ratingDifference: ratingChange.ratingDifference
+      }
     };
+    
+    // Update player ratings
+    const updatedPlayer1 = { ...match.player1, rating: ratingChange.player1.newRating };
+    const updatedPlayer2 = { ...match.player2, rating: ratingChange.player2.newRating };
     
     const updatedMatch = matchStore.updateMatch(matchId, {
       status: "verified" as const,
       result,
+      player1: updatedPlayer1,
+      player2: updatedPlayer2,
       verifiedBy: enteredBy,
       verifiedAt: new Date()
     });
@@ -93,10 +112,34 @@ export const matchStore = {
   // Admin approves result
   approveResult: (matchId: string, adminId: string) => {
     const match = matches.find(m => m.id === matchId);
-    if (!match || match.status !== "pending_verification") return null;
+    if (!match || match.status !== "pending_verification" || !match.result) return null;
+    
+    // Calculate rating change using FPTM official system
+    const ratingChange = calculateRatingChange(
+      match.player1,
+      match.player2,
+      { sets: match.result.sets, winner: match.result.winner }
+    );
+    
+    // Update result with rating change
+    const updatedResult = {
+      ...match.result,
+      ratingChange: {
+        player1: ratingChange.player1,
+        player2: ratingChange.player2,
+        ratingDifference: ratingChange.ratingDifference
+      }
+    };
+    
+    // Update player ratings
+    const updatedPlayer1 = { ...match.player1, rating: ratingChange.player1.newRating };
+    const updatedPlayer2 = { ...match.player2, rating: ratingChange.player2.newRating };
     
     const updatedMatch = matchStore.updateMatch(matchId, {
       status: "verified" as const,
+      result: updatedResult,
+      player1: updatedPlayer1,
+      player2: updatedPlayer2,
       verifiedBy: adminId,
       verifiedAt: new Date(),
       waitingAdminApproval: false
