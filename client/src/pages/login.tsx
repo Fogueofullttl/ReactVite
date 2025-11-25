@@ -1,16 +1,9 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -20,21 +13,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Trophy } from "lucide-react";
+import { Trophy, Loader2 } from "lucide-react";
 
 export default function Login() {
   const [, setLocation] = useLocation();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const { toast } = useToast();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email || !password || !role) {
+    if (!email || !password) {
       toast({
         title: "Error",
         description: "Por favor completa todos los campos",
@@ -43,31 +36,50 @@ export default function Login() {
       return;
     }
 
-    const success = login(email, password, role);
+    setIsLoading(true);
 
-    if (success) {
-      toast({
-        title: "¡Bienvenido!",
-        description: "Has iniciado sesión exitosamente",
-      });
+    try {
+      const success = await login(email, password);
 
-      if (role === "arbitro") {
-        setLocation("/arbitro/dashboard");
-      } else if (role === "admin") {
-        setLocation("/admin/registrations");
-      } else if (role === "owner") {
-        setLocation("/owner");
-      } else if (role === "jugador") {
-        setLocation("/");
+      if (success) {
+        toast({
+          title: "¡Bienvenido!",
+          description: "Has iniciado sesión exitosamente",
+        });
+
+        // Redirigir según el rol del usuario (obtenido de Firestore)
+        // Esperar un momento para que el estado de user se actualice
+        setTimeout(() => {
+          const role = localStorage.getItem('fptm_role');
+          
+          if (role === "arbitro") {
+            setLocation("/arbitro/dashboard");
+          } else if (role === "admin") {
+            setLocation("/admin/registrations");
+          } else if (role === "owner") {
+            setLocation("/owner");
+          } else if (role === "jugador") {
+            setLocation("/");
+          } else {
+            setLocation("/");
+          }
+        }, 500);
       } else {
-        setLocation("/");
+        toast({
+          title: "Error",
+          description: "Email o contraseña incorrectos",
+          variant: "destructive",
+        });
       }
-    } else {
+    } catch (error) {
+      console.error("Error en login:", error);
       toast({
         title: "Error",
-        description: "Email, contraseña o rol incorrectos",
+        description: "Ocurrió un error al iniciar sesión",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -91,13 +103,15 @@ export default function Login() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Correo Electrónico</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="tu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+                required
                 data-testid="input-email"
               />
             </div>
@@ -110,37 +124,16 @@ export default function Login() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+                required
                 data-testid="input-password"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="role">Seleccionar Rol</Label>
-              <Select value={role} onValueChange={setRole}>
-                <SelectTrigger id="role" data-testid="select-role">
-                  <SelectValue placeholder="Selecciona tu rol" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="owner">Owner</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="arbitro">Árbitro</SelectItem>
-                  <SelectItem value="jugador">Jugador</SelectItem>
-                  <SelectItem value="publico">Público</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg text-sm">
-              <p className="font-semibold mb-1">Usuarios de prueba:</p>
-              <ul className="space-y-1 text-xs">
-                <li>• admin@fptm.pr (Admin)</li>
-                <li>• arbitro@fptm.pr (Árbitro)</li>
-                <li>• jugador@fptm.pr (Jugador)</li>
-                <li>• owner@fptm.pr (Owner)</li>
-              </ul>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Contraseña: cualquiera
-              </p>
+            <div className="flex items-center justify-between text-sm">
+              <Link href="/forgot-password" className="text-primary hover:underline">
+                ¿Olvidaste tu contraseña?
+              </Link>
             </div>
           </CardContent>
 
@@ -148,16 +141,24 @@ export default function Login() {
             <Button
               type="submit"
               className="w-full"
+              disabled={isLoading}
               data-testid="button-login"
             >
-              Iniciar Sesión
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Iniciando sesión...
+                </>
+              ) : (
+                "Iniciar Sesión"
+              )}
             </Button>
 
             <p className="text-sm text-center text-muted-foreground">
               ¿No tienes cuenta?{" "}
-              <a href="#" className="text-primary hover:underline">
+              <Link href="/register" className="text-primary hover:underline" data-testid="link-register">
                 Regístrate
-              </a>
+              </Link>
             </p>
           </CardFooter>
         </form>
