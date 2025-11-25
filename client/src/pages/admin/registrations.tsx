@@ -191,6 +191,20 @@ export default function AdminRegistrations() {
                           <DollarSign className="h-4 w-4 text-[#3b82f6]" />
                           <span className="font-medium">${registration.tournament?.entryFee}</span>
                         </div>
+
+                        {/* Events Selected */}
+                        {registration.events && registration.events.length > 0 && (
+                          <div className="pt-2">
+                            <p className="text-xs text-muted-foreground mb-2">Eventos inscritos:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {registration.events.map((event) => (
+                                <Badge key={event} variant="secondary" className="text-xs">
+                                  {event}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="pt-2">
@@ -275,11 +289,20 @@ export default function AdminRegistrations() {
               <Card key={registration.id} className="border-l-4 border-l-green-500">
                 <CardContent className="pt-4 pb-4">
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div className="flex-1">
                       <p className="font-medium">{registration.player?.name}</p>
                       <p className="text-sm text-muted-foreground">
                         {registration.tournament?.name} • ATH: {registration.athMovilReference}
                       </p>
+                      {registration.events && registration.events.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {registration.events.map((event) => (
+                            <Badge key={event} variant="outline" className="text-xs">
+                              {event}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {getStatusBadge(registration.paymentStatus)}
                   </div>
@@ -302,11 +325,20 @@ export default function AdminRegistrations() {
               <Card key={registration.id} className="border-l-4 border-l-red-500">
                 <CardContent className="pt-4 pb-4">
                   <div className="flex items-center justify-between mb-2">
-                    <div>
+                    <div className="flex-1">
                       <p className="font-medium">{registration.player?.name}</p>
                       <p className="text-sm text-muted-foreground">
                         {registration.tournament?.name} • ATH: {registration.athMovilReference}
                       </p>
+                      {registration.events && registration.events.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {registration.events.map((event) => (
+                            <Badge key={event} variant="outline" className="text-xs">
+                              {event}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {getStatusBadge(registration.paymentStatus)}
                   </div>
