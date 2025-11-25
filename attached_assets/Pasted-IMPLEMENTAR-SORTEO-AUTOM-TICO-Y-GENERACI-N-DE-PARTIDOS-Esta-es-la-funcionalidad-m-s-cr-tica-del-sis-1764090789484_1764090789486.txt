@@ -1,0 +1,667 @@
+IMPLEMENTAR SORTEO AUTOMÁTICO Y GENERACIÓN DE PARTIDOS
+
+Esta es la funcionalidad más crítica del sistema de torneos.
+
+PARTE 4A: FUNCIÓN DE SORTEO AUTOMÁTICO
+
+Agregar a client/src/lib/tournaments.ts:
+```typescript
+import { createMatch } from './firestoreMatchStore';
+
+// Generar sorteo automático
+export async function generateDraw(tournamentId: string): Promise<void> {
+  const tournament = await getTournament(tournamentId);
+  if (!tournament) throw new Error('Torneo no encontrado');
+  
+  // Validar que hay inscripciones confirmadas
+  const confirmedRegistrations = tournament.registrations.filter(r => r.status === 'confirmed');
+  if (confirmedRegistrations.length === 0) {
+    throw new Error('No hay jugadores confirmados para el sorteo');
+  }
+  
+  // Obtener datos completos de jugadores
+  const players = await Promise.all(
+    confirmedRegistrations.map(async (reg) => {
+      const userId = Array.isArray(reg.userId) ? reg.userId[0] : reg.userId;
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      return {
+        userId: reg.userId,
+        rating: userDoc.data()?.profile?.rating || 1000,
+        userData: userDoc.data()
+      };
+    })
+  );
+  
+  // Ordenar por rating (de mayor a menor) para sorteo automático
+  const sortedPlayers = players.sort((a, b) => b.rating - a.rating);
+  
+  const draw: any = {
+    groups: [],
+    eliminationBracket: { round: '', matchIds: [] }
+  };
+  
+  // FASE DE GRUPOS
+  if (tournament.config.groupStage.enabled) {
+    const playersPerGroup = tournament.config.groupStage.playersPerGroup;
+    const numGroups = Math.ceil(sortedPlayers.length / playersPerGroup);
+    
+    // Crear grupos vacíos
+    const groups: Array<{groupId: string; participants: string[]; matchIds: string[]}> = [];
+    for (let i = 0; i < numGroups; i++) {
+      groups.push({
+        groupId: String.fromCharCode(65 + i), // A, B, C, D...
+        participants: [],
+        matchIds: []
+      });
+    }
+    
+    // Distribuir jugadores usando "snake draft" para balanceo
+    // Grupo A: 1, 8, 9, 16
+    // Grupo B: 2, 7, 10, 15
+    // Grupo C: 3, 6, 11, 14
+    // Grupo D: 4, 5, 12, 13
+    sortedPlayers.forEach((player, index) => {
+      const groupIndex = index % numGroups;
+      const userId = Array.isArray(player.userId) ? player.userId : [player.userId];
+      groups[groupIndex].participants.push(...userId);
+    });
+    
+    // Generar partidos round-robin para cada grupo
+    for (const group of groups) {
+      const matchIds = await generateRoundRobinMatches(
+        tournament,
+        group.groupId,
+        group.participants,
+        sortedPlayers
+      );
+      group.matchIds = matchIds;
+    }
+    
+    draw.groups = groups;
+  }
+  
+  // FASE DE ELIMINACIÓN (si no hay grupos, todos van directo)
+  if (tournament.config.eliminationStage.enabled && !tournament.config.groupStage.enabled) {
+    const matchIds = await generateEliminationBracket(
+      tournament,
+      sortedPlayers.map(p => Array.isArray(p.userId) ? p.userId[0] : p.userId)
+    );
+    draw.eliminationBracket = {
+      round: determineFirstRound(sortedPlayers.length),
+      matchIds
+    };
+  }
+  
+  // Guardar sorteo en torneo
+  await updateDoc(doc(db, 'tournaments', tournamentId), {
+    draw,
+    status: 'in_progress',
+    updatedAt: Timestamp.now()
+  });
+}
+
+// Generar partidos round-robin
+async function generateRoundRobinMatches(
+  tournament: Tournament,
+  groupId: string,
+  participants: string[],
+  allPlayers: any[]
+): Promise<string[]> {
+  const matchIds: string[] = [];
+  
+  // Generar todos los enfrentamientos posibles (combinaciones)
+  for (let i = 0; i < participants.length; i++) {
+    for (let j = i + 1; j < participants.length; j++) {
+      const player1Id = participants[i];
+      const player2Id = participants[j];
+      
+      // Obtener datos de jugadores
+      const player1Data = allPlayers.find(p => 
+        (Array.isArray(p.userId) ? p.userId[0] : p.userId) === player1Id
+      )?.userData;
+      
+      const player2Data = allPlayers.find(p => 
+        (Array.isArray(p.userId) ? p.userId[0] : p.userId) === player2Id
+      )?.userData;
+      
+      // Crear partido
+      const matchId = await createMatch({
+        tournamentId: tournament.id!,
+        tournamentName: tournament.name,
+        stage: 'groups',
+        round: 'groups',
+        mesa: 0, // Asignar después
+        status: 'scheduled',
+        referee: null,
+        player1: {
+          id: player1Id,
+          name: `${player1Data.profile.firstName} ${player1Data.profile.lastName}`,
+          birthYear: player1Data.profile.birthYear,
+          rating: player1Data.profile.rating,
+          photoURL: player1Data.profile.photoURL || ''
+        },
+        player2: {
+          id: player2Id,
+          name: `${player2Data.profile.firstName} ${player2Data.profile.lastName}`,
+          birthYear: player2Data.profile.birthYear,
+          rating: player2Data.profile.rating,
+          photoURL: player2Data.profile.photoURL || ''
+        },
+        result: null
+      });
+      
+      matchIds.push(matchId);
+    }
+  }
+  
+  return matchIds;
+}
+
+// Generar bracket de eliminación
+async function generateEliminationBracket(
+  tournament: Tournament,
+  participantIds: string[]
+): Promise<string[]> {
+  const matchIds: string[] = [];
+  
+  // Calcular número de partidos en primera ronda
+  const numPlayers = participantIds.length;
+  const firstRoundMatches = Math.floor(numPlayers / 2);
+  
+  // Emparejar jugadores (1 vs último, 2 vs penúltimo, etc.)
+  for (let i = 0; i < firstRoundMatches; i++) {
+    const player1Id = participantIds[i];
+    const player2Id = participantIds[numPlayers - 1 - i];
+    
+    // Obtener datos (similar a round-robin)
+    const player1Doc = await getDoc(doc(db, 'users', player1Id));
+    const player2Doc = await getDoc(doc(db, 'users', player2Id));
+    
+    const player1Data = player1Doc.data();
+    const player2Data = player2Doc.data();
+    
+    const matchId = await createMatch({
+      tournamentId: tournament.id!,
+      tournamentName: tournament.name,
+      stage: 'elimination',
+      round: determineFirstRound(numPlayers),
+      mesa: 0,
+      status: 'scheduled',
+      referee: null,
+      player1: {
+        id: player1Id,
+        name: `${player1Data?.profile.firstName} ${player1Data?.profile.lastName}`,
+        birthYear: player1Data?.profile.birthYear,
+        rating: player1Data?.profile.rating,
+        photoURL: player1Data?.profile.photoURL || ''
+      },
+      player2: {
+        id: player2Id,
+        name: `${player2Data?.profile.firstName} ${player2Data?.profile.lastName}`,
+        birthYear: player2Data?.profile.birthYear,
+        rating: player2Data?.profile.rating,
+        photoURL: player2Data?.profile.photoURL || ''
+      },
+      result: null
+    });
+    
+    matchIds.push(matchId);
+  }
+  
+  return matchIds;
+}
+
+// Determinar primera ronda según número de jugadores
+function determineFirstRound(numPlayers: number): string {
+  if (numPlayers <= 4) return 'semifinals';
+  if (numPlayers <= 8) return 'quarterfinals';
+  if (numPlayers <= 16) return 'round_of_16';
+  return 'round_of_32';
+}
+
+// Confirmar inscripción (admin)
+export async function confirmRegistration(
+  tournamentId: string,
+  registrationIndex: number
+): Promise<void> {
+  const tournament = await getTournament(tournamentId);
+  if (!tournament) throw new Error('Torneo no encontrado');
+  
+  const registrations = [...tournament.registrations];
+  registrations[registrationIndex].status = 'confirmed';
+  registrations[registrationIndex].paymentStatus = 'paid';
+  
+  await updateDoc(doc(db, 'tournaments', tournamentId), {
+    registrations,
+    updatedAt: Timestamp.now()
+  });
+}
+```
+
+PARTE 4B: PÁGINA DE GESTIÓN DE TORNEO
+
+Crear: client/src/pages/admin/manage-tournament.tsx
+```tsx
+import { useState, useEffect } from 'react';
+import { useRoute } from 'wouter';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  getTournament, 
+  openRegistration, 
+  closeRegistration,
+  confirmRegistration,
+  generateDraw,
+  type Tournament 
+} from '@/lib/tournaments';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+
+export default function ManageTournament() {
+  const [, params] = useRoute('/admin/tournaments/:id');
+  const { toast } = useToast();
+  
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    loadTournament();
+  }, [params?.id]);
+
+  const loadTournament = async () => {
+    if (!params?.id) return;
+    
+    try {
+      const data = await getTournament(params.id);
+      setTournament(data);
+    } catch (error) {
+      toast({ title: 'Error al cargar torneo', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenRegistration = async () => {
+    if (!tournament?.id) return;
+    
+    try {
+      await openRegistration(tournament.id);
+      await loadTournament();
+      toast({ title: 'Inscripciones abiertas' });
+    } catch (error) {
+      toast({ title: 'Error', variant: 'destructive' });
+    }
+  };
+
+  const handleCloseRegistration = async () => {
+    if (!tournament?.id) return;
+    
+    try {
+      await closeRegistration(tournament.id);
+      await loadTournament();
+      toast({ title: 'Inscripciones cerradas' });
+    } catch (error) {
+      toast({ title: 'Error', variant: 'destructive' });
+    }
+  };
+
+  const handleConfirmRegistration = async (index: number) => {
+    if (!tournament?.id) return;
+    
+    try {
+      await confirmRegistration(tournament.id, index);
+      await loadTournament();
+      toast({ title: 'Inscripción confirmada' });
+    } catch (error) {
+      toast({ title: 'Error', variant: 'destructive' });
+    }
+  };
+
+  const handleGenerateDraw = async () => {
+    if (!tournament?.id) return;
+    
+    setGenerating(true);
+    try {
+      await generateDraw(tournament.id);
+      await loadTournament();
+      toast({ title: 'Sorteo generado exitosamente' });
+    } catch (error: any) {
+      toast({ title: error.message || 'Error', variant: 'destructive' });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  if (loading) return <div className="p-6">Cargando...</div>;
+  if (!tournament) return <div className="p-6">Torneo no encontrado</div>;
+
+  const confirmedCount = tournament.registrations.filter(r => r.status === 'confirmed').length;
+  const pendingCount = tournament.registrations.filter(r => r.status === 'pending').length;
+
+  return (
+    <div className="max-w-7xl mx-auto p-6">
+      {/* Header */}
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">{tournament.name}</h1>
+          <p className="text-gray-600">
+            {tournament.venue} - {format(tournament.date, 'PPP', { locale: es })}
+          </p>
+        </div>
+        
+        <Badge variant={
+          tournament.status === 'draft' ? 'secondary' :
+          tournament.status === 'registration_open' ? 'default' :
+          tournament.status === 'registration_closed' ? 'outline' :
+          tournament.status === 'in_progress' ? 'default' :
+          'secondary'
+        }>
+          {tournament.status === 'draft' && 'Borrador'}
+          {tournament.status === 'registration_open' && 'Inscripciones Abiertas'}
+          {tournament.status === 'registration_closed' && 'Inscripciones Cerradas'}
+          {tournament.status === 'in_progress' && 'En Progreso'}
+          {tournament.status === 'completed' && 'Completado'}
+        </Badge>
+      </div>
+
+      {/* Acciones */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Acciones</CardTitle>
+        </CardHeader>
+        <CardContent className="flex gap-3">
+          {tournament.status === 'draft' && (
+            <Button onClick={handleOpenRegistration}>
+              Abrir Inscripciones
+            </Button>
+          )}
+          
+          {tournament.status === 'registration_open' && (
+            <Button onClick={handleCloseRegistration} variant="outline">
+              Cerrar Inscripciones
+            </Button>
+          )}
+          
+          {tournament.status === 'registration_closed' && !tournament.draw && (
+            <Button 
+              onClick={handleGenerateDraw}
+              disabled={confirmedCount === 0 || generating}
+            >
+              {generating ? 'Generando...' : 'Generar Sorteo'}
+            </Button>
+          )}
+          
+          {tournament.draw && (
+            <Button variant="outline">
+              Ver Cuadros
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Estadísticas */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Inscritos Confirmados</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-bold">{confirmedCount}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Pendientes de Pago</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-bold">{pendingCount}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Grupos Generados</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-bold">
+              {tournament.draw?.groups.length || 0}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabs */}
+      <Tabs defaultValue="registrations">
+        <TabsList>
+          <TabsTrigger value="registrations">
+            Inscripciones ({tournament.registrations.length})
+          </TabsTrigger>
+          <TabsTrigger value="groups">
+            Grupos ({tournament.draw?.groups.length || 0})
+          </TabsTrigger>
+          <TabsTrigger value="bracket">
+            Eliminación
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="registrations">
+          <Card>
+            <CardContent className="pt-6">
+              {tournament.registrations.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">
+                  No hay inscripciones todavía
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {tournament.registrations.map((reg, index) => (
+                    <div 
+                      key={index}
+                      className="flex justify-between items-center p-4 border rounded-lg"
+                    >
+                      <div>
+                        <div className="font-semibold">
+                          Usuario ID: {Array.isArray(reg.userId) ? reg.userId.join(', ') : reg.userId}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {format(reg.registeredAt, 'PPp', { locale: es })}
+                        </div>
+                        {reg.paymentCode && (
+                          <div className="text-sm text-gray-600">
+                            Código ATH: {reg.paymentCode}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <Badge variant={
+                          reg.status === 'confirmed' ? 'default' : 'secondary'
+                        }>
+                          {reg.status === 'confirmed' ? 'Confirmado' : 'Pendiente'}
+                        </Badge>
+                        
+                        {reg.status === 'pending' && (
+                          <Button 
+                            size="sm"
+                            onClick={() => handleConfirmRegistration(index)}
+                          >
+                            Confirmar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="groups">
+          {!tournament.draw ? (
+            <Card>
+              <CardContent className="py-8 text-center text-gray-500">
+                Genera el sorteo para ver los grupos
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {tournament.draw.groups.map((group) => (
+                <Card key={group.groupId}>
+                  <CardHeader>
+                    <CardTitle>Grupo {group.groupId}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {group.participants.map((playerId) => (
+                        <div key={playerId} className="p-2 border rounded">
+                          ID: {playerId}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 text-sm text-gray-600">
+                      {group.matchIds.length} partidos programados
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="bracket">
+          <Card>
+            <CardContent className="py-8 text-center text-gray-500">
+              Los brackets se generan después de completar la fase de grupos
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+```
+
+PARTE 4C: AGREGAR RUTA Y NAVEGACIÓN
+
+En App.tsx:
+```tsx
+<Route path="/admin/tournaments/:id" component={ManageTournament} />
+```
+
+En sidebar, actualizar link de "Torneos":
+```tsx
+<Link href="/admin/tournaments">
+  <Calendar className="w-4 h-4" />
+  Torneos
+</Link>
+```
+
+Y crear página de lista de torneos:
+
+client/src/pages/admin/tournaments-list.tsx
+```tsx
+import { useState, useEffect } from 'react';
+import { Link } from 'wouter';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { getAllTournaments, type Tournament } from '@/lib/tournaments';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Plus } from 'lucide-react';
+
+export default function TournamentsList() {
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadTournaments();
+  }, []);
+
+  const loadTournaments = async () => {
+    try {
+      const data = await getAllTournaments();
+      // Ordenar por fecha (más recientes primero)
+      data.sort((a, b) => b.date.getTime() - a.date.getTime());
+      setTournaments(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Gestión de Torneos</h1>
+        <Link href="/admin/tournaments/create">
+          <Button>
+            <Plus className="w-4 h-4 mr-2" />
+            Crear Torneo
+          </Button>
+        </Link>
+      </div>
+
+      {loading ? (
+        <div>Cargando...</div>
+      ) : tournaments.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-gray-500">
+            <p>No hay torneos creados todavía</p>
+            <Link href="/admin/tournaments/create">
+              <Button className="mt-4">Crear Primer Torneo</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {tournaments.map((tournament) => (
+            <Link key={tournament.id} href={`/admin/tournaments/${tournament.id}`}>
+              <Card className="hover:bg-gray-50 cursor-pointer transition">
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-xl font-bold mb-2">{tournament.name}</h3>
+                      <p className="text-gray-600 mb-2">
+                        {tournament.venue} - {format(tournament.date, 'PPP', { locale: es })}
+                      </p>
+                      <div className="flex gap-2">
+                        <Badge variant="outline">{tournament.type}</Badge>
+                        <Badge variant="outline">{tournament.category}</Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right">
+                      <Badge variant={
+                        tournament.status === 'draft' ? 'secondary' :
+                        tournament.status === 'registration_open' ? 'default' :
+                        'outline'
+                      }>
+                        {tournament.status}
+                      </Badge>
+                      <div className="mt-2 text-sm text-gray-600">
+                        {tournament.registrations.length} inscritos
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+Y agregar ruta:
+```tsx
+<Route path="/admin/tournaments" component={TournamentsList} />
+```
+
+Implementa TODO esto ahora. Esta es la parte crítica del sistema de torneos.

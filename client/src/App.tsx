@@ -30,6 +30,8 @@ import AdminUsers from "@/pages/admin/users";
 import AdminRegistrations from "@/pages/admin/registrations";
 import AdminVerifyResults from "@/pages/admin/verify-results";
 import CreateTournament from "@/pages/admin/create-tournament";
+import TournamentsList from "@/pages/admin/tournaments-list";
+import ManageTournament from "@/pages/admin/manage-tournament";
 import OwnerDashboard from "@/pages/owner/dashboard";
 import OwnerAnalytics from "@/pages/owner/analytics";
 import OwnerUsers from "@/pages/owner/users";
@@ -58,7 +60,9 @@ function Router() {
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/registrations" component={AdminRegistrations} />
       <Route path="/admin/verify-results" component={AdminVerifyResults} />
+      <Route path="/admin/tournaments" component={TournamentsList} />
       <Route path="/admin/tournaments/create" component={CreateTournament} />
+      <Route path="/admin/tournaments/:id" component={ManageTournament} />
       <Route path="/owner" component={OwnerDashboard} />
       <Route path="/owner/analytics" component={OwnerAnalytics} />
       <Route path="/owner/users" component={OwnerUsers} />

@@ -67,8 +67,8 @@ const menuItemsByRole: Record<string, Array<{ title: string; url: string; icon: 
   admin: [
     { title: "Dashboard Admin", url: "/admin/registrations", icon: Home },
     { title: "Verificar Resultados", url: "/admin/verify-results", icon: Shield },
-    { title: "Crear Torneo", url: "/admin/tournaments/create", icon: Calendar },
-    { title: "Torneos", url: "/tournaments", icon: Trophy },
+    { title: "Gestion Torneos", url: "/admin/tournaments", icon: Calendar },
+    { title: "Torneos Publicos", url: "/tournaments", icon: Trophy },
     { title: "Jugadores", url: "/admin/users", icon: Users },
     { title: "Pagos", url: "/admin/registrations", icon: Medal },
     { title: "Rankings", url: "/rankings", icon: TrendingUp },

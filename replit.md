@@ -68,7 +68,11 @@ The system employs a client-server architecture.
         -   **Registration Management:** Atomic registration system using Firestore `arrayUnion` for concurrent player registrations
         -   **Date Validation:** Strict enforcement of registration deadline before tournament date
         -   **Firestore Collections:** Tournaments stored in `tournaments` collection with proper Timestamp conversions for all date fields
-        -   **Admin Navigation:** Dedicated "Crear Torneo" link in admin sidebar for easy access
+        -   **Admin Navigation:** Dedicated "Gestion Torneos" link in admin sidebar for easy access
+        -   **Automatic Draw Generation:** Snake draft algorithm for balanced group distribution, round-robin match generation for groups, elimination bracket seeding (1 vs last, 2 vs second-to-last)
+        -   **Match Scheduling:** Automatic scheduling with 15-minute intervals for group matches, 20-minute intervals for elimination, rotating table assignments (1-4)
+        -   **Admin Dashboard:** Tournament list view at `/admin/tournaments`, individual management at `/admin/tournaments/:id` with tabs for registrations, groups, and brackets
+        -   **Known Limitation:** Doubles tournaments store team as string[] but draw generation currently uses first player ID as team representative. Full doubles support (both partner IDs in match) planned for future enhancement
 -   **System Design Choices:**
     -   **Modular Design:** Clear separation between `shared`, `server`, and `client` directories.
     -   **Full Firebase Integration:** Firebase Auth + Firestore for complete data persistence (users, matches). Backend uses in-memory `MemStorage` for tournaments/registrations (migration planned).

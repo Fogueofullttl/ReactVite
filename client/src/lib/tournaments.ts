@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { createTournamentSchema } from './schemas/tournament';
+import { createMatch } from './firestoreMatchStore';
 
 export interface Tournament {
   id?: string;
@@ -220,4 +221,237 @@ export async function getTournamentsByStatus(status: Tournament['status']): Prom
       updatedAt: data.updatedAt?.toDate()
     } as Tournament;
   });
+}
+
+export async function confirmRegistration(
+  tournamentId: string,
+  registrationIndex: number
+): Promise<void> {
+  const tournament = await getTournament(tournamentId);
+  if (!tournament) throw new Error('Torneo no encontrado');
+  
+  if (registrationIndex < 0 || registrationIndex >= tournament.registrations.length) {
+    throw new Error('Indice de inscripcion invalido');
+  }
+  
+  const registrations = [...tournament.registrations];
+  registrations[registrationIndex].status = 'confirmed';
+  registrations[registrationIndex].paymentStatus = 'paid';
+  
+  await updateDoc(doc(db, 'tournaments', tournamentId), {
+    registrations: registrations.map(reg => ({
+      ...reg,
+      registeredAt: Timestamp.fromDate(reg.registeredAt)
+    })),
+    updatedAt: Timestamp.now()
+  });
+}
+
+export async function generateDraw(tournamentId: string): Promise<void> {
+  const tournament = await getTournament(tournamentId);
+  if (!tournament) throw new Error('Torneo no encontrado');
+  
+  const confirmedRegistrations = tournament.registrations.filter(r => r.status === 'confirmed');
+  if (confirmedRegistrations.length === 0) {
+    throw new Error('No hay jugadores confirmados para el sorteo');
+  }
+  
+  const players = await Promise.all(
+    confirmedRegistrations.map(async (reg) => {
+      const userId = Array.isArray(reg.userId) ? reg.userId[0] : reg.userId;
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      const userData = userDoc.data();
+      return {
+        userId: reg.userId,
+        rating: userData?.profile?.rating || userData?.rating || 1000,
+        userData: userData
+      };
+    })
+  );
+  
+  const sortedPlayers = players.sort((a, b) => b.rating - a.rating);
+  
+  const draw: any = {
+    groups: [],
+    eliminationBracket: { round: '', matchIds: [] }
+  };
+  
+  if (tournament.config.groupStage.enabled) {
+    const playersPerGroup = tournament.config.groupStage.playersPerGroup;
+    const numGroups = Math.ceil(sortedPlayers.length / playersPerGroup);
+    
+    const groups: Array<{groupId: string; participants: string[]; matchIds: string[]}> = [];
+    for (let i = 0; i < numGroups; i++) {
+      groups.push({
+        groupId: String.fromCharCode(65 + i),
+        participants: [],
+        matchIds: []
+      });
+    }
+    
+    sortedPlayers.forEach((player, index) => {
+      const roundNumber = Math.floor(index / numGroups);
+      const positionInRound = index % numGroups;
+      const groupIndex = roundNumber % 2 === 0 
+        ? positionInRound 
+        : (numGroups - 1) - positionInRound;
+      const userId = Array.isArray(player.userId) ? player.userId[0] : player.userId;
+      groups[groupIndex].participants.push(userId);
+    });
+    
+    for (const group of groups) {
+      const matchIds = await generateRoundRobinMatches(
+        tournament,
+        group.groupId,
+        group.participants,
+        sortedPlayers
+      );
+      group.matchIds = matchIds;
+    }
+    
+    draw.groups = groups;
+  }
+  
+  if (tournament.config.eliminationStage.enabled && !tournament.config.groupStage.enabled) {
+    const matchIds = await generateEliminationBracket(
+      tournament,
+      sortedPlayers.map(p => Array.isArray(p.userId) ? p.userId[0] : p.userId)
+    );
+    draw.eliminationBracket = {
+      round: determineFirstRound(sortedPlayers.length),
+      matchIds
+    };
+  }
+  
+  await updateDoc(doc(db, 'tournaments', tournamentId), {
+    draw,
+    status: 'in_progress',
+    updatedAt: Timestamp.now()
+  });
+}
+
+async function generateRoundRobinMatches(
+  tournament: Tournament,
+  groupId: string,
+  participants: string[],
+  allPlayers: any[]
+): Promise<string[]> {
+  const matchIds: string[] = [];
+  let matchIndex = 0;
+  
+  for (let i = 0; i < participants.length; i++) {
+    for (let j = i + 1; j < participants.length; j++) {
+      const player1Id = participants[i];
+      const player2Id = participants[j];
+      
+      const player1Data = allPlayers.find(p => {
+        const pId = Array.isArray(p.userId) ? p.userId[0] : p.userId;
+        return pId === player1Id;
+      })?.userData;
+      
+      const player2Data = allPlayers.find(p => {
+        const pId = Array.isArray(p.userId) ? p.userId[0] : p.userId;
+        return pId === player2Id;
+      })?.userData;
+      
+      const p1Profile = player1Data?.profile || player1Data;
+      const p2Profile = player2Data?.profile || player2Data;
+      
+      const scheduledTime = new Date(tournament.date.getTime() + (matchIndex * 15 * 60 * 1000));
+      
+      const matchId = await createMatch({
+        tournamentId: tournament.id!,
+        tournamentName: tournament.name,
+        stage: 'groups',
+        round: `Grupo ${groupId}`,
+        mesa: (matchIndex % 4) + 1,
+        status: 'scheduled',
+        scheduledTime,
+        player1: {
+          id: player1Id,
+          name: `${p1Profile?.firstName || 'Jugador'} ${p1Profile?.lastName || '1'}`,
+          birthYear: p1Profile?.birthYear || 2000,
+          rating: p1Profile?.rating || 1000,
+          photoURL: p1Profile?.photoURL || ''
+        },
+        player2: {
+          id: player2Id,
+          name: `${p2Profile?.firstName || 'Jugador'} ${p2Profile?.lastName || '2'}`,
+          birthYear: p2Profile?.birthYear || 2000,
+          rating: p2Profile?.rating || 1000,
+          photoURL: p2Profile?.photoURL || ''
+        }
+      });
+      
+      if (matchId) {
+        matchIds.push(matchId);
+      }
+      matchIndex++;
+    }
+  }
+  
+  return matchIds;
+}
+
+async function generateEliminationBracket(
+  tournament: Tournament,
+  participantIds: string[]
+): Promise<string[]> {
+  const matchIds: string[] = [];
+  
+  const numPlayers = participantIds.length;
+  const firstRoundMatches = Math.floor(numPlayers / 2);
+  
+  for (let i = 0; i < firstRoundMatches; i++) {
+    const player1Id = participantIds[i];
+    const player2Id = participantIds[numPlayers - 1 - i];
+    
+    const player1Doc = await getDoc(doc(db, 'users', player1Id));
+    const player2Doc = await getDoc(doc(db, 'users', player2Id));
+    
+    const player1Data = player1Doc.data();
+    const player2Data = player2Doc.data();
+    
+    const p1Profile = player1Data?.profile || player1Data;
+    const p2Profile = player2Data?.profile || player2Data;
+    
+    const scheduledTime = new Date(tournament.date.getTime() + (i * 20 * 60 * 1000));
+    
+    const matchId = await createMatch({
+      tournamentId: tournament.id!,
+      tournamentName: tournament.name,
+      stage: 'elimination',
+      round: determineFirstRound(numPlayers),
+      mesa: (i % 4) + 1,
+      status: 'scheduled',
+      scheduledTime,
+      player1: {
+        id: player1Id,
+        name: `${p1Profile?.firstName || 'Jugador'} ${p1Profile?.lastName || '1'}`,
+        birthYear: p1Profile?.birthYear || 2000,
+        rating: p1Profile?.rating || 1000,
+        photoURL: p1Profile?.photoURL || ''
+      },
+      player2: {
+        id: player2Id,
+        name: `${p2Profile?.firstName || 'Jugador'} ${p2Profile?.lastName || '2'}`,
+        birthYear: p2Profile?.birthYear || 2000,
+        rating: p2Profile?.rating || 1000,
+        photoURL: p2Profile?.photoURL || ''
+      }
+    });
+    
+    if (matchId) {
+      matchIds.push(matchId);
+    }
+  }
+  
+  return matchIds;
+}
+
+function determineFirstRound(numPlayers: number): string {
+  if (numPlayers <= 4) return 'Semifinales';
+  if (numPlayers <= 8) return 'Cuartos de Final';
+  if (numPlayers <= 16) return 'Octavos de Final';
+  return 'Ronda de 32';
 }
