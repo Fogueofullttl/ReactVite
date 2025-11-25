@@ -148,10 +148,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "playerId is required" });
       }
       
+      // Validar que events exista
+      if (!req.body.events || !Array.isArray(req.body.events)) {
+        return res.status(400).json({ 
+          error: "Events is required and must be an array",
+          received: req.body.events
+        });
+      }
+      
       const validated = insertTournamentRegistrationSchema.parse({
         tournamentId: req.params.id,
         playerId: playerId,
         partnerId: req.body.partnerId || null,
+        events: req.body.events,
         athMovilReference: req.body.athMovilReference,
       });
       

@@ -77,14 +77,21 @@ export default function TournamentRegister() {
   });
 
   const onSubmit = (data: RegisterFormData) => {
-    console.log("Form data being submitted:", data);
-    console.log("Events value:", data.events);
+    // Verificar que events no esté undefined
+    if (!data.events || data.events.length === 0) {
+      toast({
+        title: "Error",
+        description: "Debes seleccionar al menos un evento",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Ensure athMovilReference is uppercase
     const submissionData = {
       ...data,
       athMovilReference: data.athMovilReference.toUpperCase(),
     };
-    console.log("Submission data:", submissionData);
     registerMutation.mutate(submissionData);
   };
 
@@ -273,7 +280,6 @@ export default function TournamentRegister() {
                             const newValue = checked
                               ? [...currentValue, event]
                               : currentValue.filter((value) => value !== event);
-                            console.log("Checkbox changed:", event, "checked:", checked, "newValue:", newValue);
                             field.onChange(newValue);
                           }}
                         />
