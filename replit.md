@@ -25,14 +25,20 @@ The system employs a client-server architecture.
 -   **Technical Implementations:**
     -   **Authentication System (Mock):** React Context-based authentication using localStorage. Supports 4 roles (owner, admin, arbitro, jugador, publico) with dynamic navigation and role-based dashboards.
     -   **Mock Match Data:** Comprehensive match data structure with example matches in various states (scheduled, pending_result, pending_verification, verified, disputed, rejected).
-    -   **Match Store (Global State System):** In-memory state management system (`client/src/lib/matchStore.ts`) with global reactivity via events for real-time updates across dashboards. Handles saving results by both referees and players, and approval/rejection by admins.
+    -   **Match Store (Global State System):** In-memory state management system (`client/src/lib/matchStore.ts`) with localStorage persistence and global reactivity via events for real-time updates across dashboards. Handles saving results by both referees and players, approval/rejection by admins, and automatic rating change calculations and application.
     -   **Dynamic Navigation:** Sidebar uses `useAuth` hook for role-specific menus and real-time badge counters for pending matches.
     -   **Match Scoring - Dual System:** Implemented for both referees (`/arbitro/match/:matchId`) and players (`/jugador/match/:matchId`).
         -   **Referee Scoring:** Marks matches as "verified" directly.
         -   **Player Scoring:** Marks matches as "pending_verification" requiring administrative approval.
         -   **Set Validation:** Automatic validation according to official table tennis rules (e.g., minimum 11 points, 2-point difference).
     -   **Birth Year Validation:** Critical component (`client/src/components/birth-year-validation.tsx`) integrated into scoring flow, requiring dual birth year validation for both players to prevent fraud.
-    -   **ELO Rating System:** Implemented with a K-factor of 32, automatically updating player ratings and storing history upon match completion.
+    -   **Official FPTM Rating System:** Complete implementation of the 13-tier rating table based on rating differences. System automatically calculates and applies rating changes upon match verification. Key features:
+        -   **13 Rating Tiers:** Ranges from 0-12 pts (±8) to 351+ pts (±25/-1).
+        -   **Symmetric Equal Ratings:** When players have equal ratings (0-12 difference), winner always gets +8 and loser gets -8.
+        -   **Upset Rewards:** Larger rating gains for underdog victories (e.g., 351+ difference: +25 for underdog win vs +1 for favorite win).
+        -   **localStorage Persistence:** Match data including rating changes persists across page reloads and browser sessions.
+        -   **Admin UI Integration:** Shows projected rating changes (blue/purple gradient) before approval and applied changes (green/blue gradient) after verification.
+        -   **Detailed Toast Notifications:** Approval toasts display complete rating changes with old → new ratings for both players.
     -   **ATH Móvil Payment System:** Full workflow for manual admin verification of 5-character alphanumeric reference codes.
     -   **Multi-Event Tournament Registration:** Players can register for multiple events within a single tournament using checkbox selection, with validation and display in the admin interface.
     -   **Member Number Generation:** Automatic, auto-incrementing member numbers in the format `PRTTM-000123`.
