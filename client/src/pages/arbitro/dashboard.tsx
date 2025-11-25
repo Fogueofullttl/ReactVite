@@ -1,15 +1,21 @@
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MatchCard from "@/components/MatchCard";
-import { mockMatches } from "@/data/mockMatches";
+import { matchStore } from "@/lib/matchStore";
 
 export default function ArbitroDashboard() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const [matches, setMatches] = useState(matchStore.getMatches());
 
-  const refereeMatches = mockMatches.filter(m => m.referee === user?.id);
+  useEffect(() => {
+    setMatches(matchStore.getMatches());
+  }, []);
+
+  const refereeMatches = matches.filter(m => m.referee === user?.id);
   const pendingMatches = refereeMatches.filter(m => m.status === 'pending');
   const completedMatches = refereeMatches.filter(m => m.status === 'completed');
 

@@ -1,0 +1,625 @@
+🚀 SIGUIENTE PASO: SISTEMA DE ROLES Y ÁRBITROS
+Copia y pega esto en Replit Agent:
+Perfecto! Ahora implementa el sistema de roles y dashboard de árbitro como pedí anteriormente.
+
+FASE 1 - SISTEMA DE LOGIN CON ROLES (Mock/Simulado)
+
+1. CREAR PÁGINA /login:
+   - Título: "Iniciar Sesión - FPTM"
+   - Campo: Email (input)
+   - Campo: Password (input type="password")
+   - Dropdown: "Seleccionar Rol" con opciones:
+     * Owner
+     * Admin  
+     * Árbitro
+     * Jugador
+     * Público
+   - Botón: "Iniciar Sesión"
+   - Link: "¿No tienes cuenta? Regístrate"
+
+2. AL HACER LOGIN (Simulado - Sin Firebase por ahora):
+```typescript
+   const mockUsers = {
+     "admin@fptm.pr": { 
+       role: "admin", 
+       name: "Admin FPTM",
+       id: "admin-001",
+       memberNumber: "PRTTM-000001"
+     },
+     "arbitro@fptm.pr": { 
+       role: "arbitro", 
+       name: "Carlos Arbitro",
+       id: "arbitro-001",
+       memberNumber: "PRTTM-000010"
+     },
+     "jugador@fptm.pr": { 
+       role: "jugador", 
+       name: "Carlos Rivera",
+       id: "user1",
+       memberNumber: "PRTTM-001234",
+       birthYear: 1995,
+       rating: 1850
+     }
+   };
+   
+   // Guardar en localStorage:
+   localStorage.setItem('fptm_user', JSON.stringify(user));
+   localStorage.setItem('fptm_role', user.role);
+```
+
+3. NAVEGACIÓN DINÁMICA POR ROL:
+
+Actualizar la barra de navegación según rol:
+
+**PÚBLICO (no logueado):**
+- Inicio
+- Torneos
+- Rankings
+- [Botón: Iniciar Sesión]
+
+**JUGADOR:**
+- Inicio
+- Mis Torneos
+- Rankings
+- Mi Perfil
+- [Avatar con menú dropdown: Cerrar Sesión]
+
+**ÁRBITRO:**
+- Inicio
+- Mis Partidos (NEW!)
+- Torneos
+- [Avatar: Cerrar Sesión]
+
+**ADMIN:**
+- Dashboard Admin
+- Torneos
+- Jugadores
+- Pagos
+- Rankings
+- [Avatar: Cerrar Sesión]
+
+**OWNER:**
+- Dashboard Owner
+- Todo lo del Admin +
+- Configuración
+- Logs del Sistema
+
+4. CREAR RUTA: /arbitro/dashboard
+
+Componente: ArbitroDashboard.tsx
+
+Estructura:
+```tsx
+<div className="max-w-7xl mx-auto p-6">
+  <h1>Mis Partidos Asignados</h1>
+  
+  {/* Estadísticas */}
+  <div className="grid grid-cols-3 gap-4 mb-6">
+    <Card>
+      <CardHeader>Pendientes</CardHeader>
+      <CardContent className="text-3xl">{pendingCount}</CardContent>
+    </Card>
+    <Card>
+      <CardHeader>Completados Hoy</CardHeader>
+      <CardContent className="text-3xl">{completedTodayCount}</CardContent>
+    </Card>
+    <Card>
+      <CardHeader>Total Arbitrados</CardHeader>
+      <CardContent className="text-3xl">{totalCount}</CardContent>
+    </Card>
+  </div>
+
+  {/* Tabs: Pendientes | Completados */}
+  <Tabs defaultValue="pending">
+    <TabsList>
+      <TabsTrigger value="pending">Pendientes ({pendingCount})</TabsTrigger>
+      <TabsTrigger value="completed">Completados ({completedCount})</TabsTrigger>
+    </TabsList>
+
+    <TabsContent value="pending">
+      {/* Lista de partidos pendientes */}
+      {pendingMatches.map(match => (
+        <MatchCard 
+          key={match.id}
+          match={match}
+          onEnterResult={() => navigate(`/arbitro/match/${match.id}`)}
+        />
+      ))}
+    </TabsContent>
+
+    <TabsContent value="completed">
+      {/* Lista de partidos completados */}
+    </TabsContent>
+  </Tabs>
+</div>
+```
+
+5. COMPONENTE: MatchCard.tsx
+```tsx
+<Card className="mb-4">
+  <CardHeader>
+    <div className="flex justify-between items-center">
+      <Badge variant={match.stage === 'final' ? 'default' : 'secondary'}>
+        {match.stage} - Mesa {match.mesa}
+      </Badge>
+      <span className="text-sm text-gray-500">
+        {match.tournamentName}
+      </span>
+    </div>
+  </CardHeader>
+  
+  <CardContent>
+    <div className="grid grid-cols-3 gap-4 items-center">
+      {/* Jugador 1 */}
+      <div className="text-center">
+        <Avatar className="w-16 h-16 mx-auto mb-2">
+          <AvatarImage src={match.player1.photoURL} />
+          <AvatarFallback>{match.player1.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+        </Avatar>
+        <div className="font-semibold">{match.player1.name}</div>
+        <div className="text-sm text-gray-500">Rating: {match.player1.rating}</div>
+      </div>
+
+      {/* VS */}
+      <div className="text-center text-2xl font-bold text-gray-400">
+        VS
+      </div>
+
+      {/* Jugador 2 */}
+      <div className="text-center">
+        <Avatar className="w-16 h-16 mx-auto mb-2">
+          <AvatarImage src={match.player2.photoURL} />
+          <AvatarFallback>{match.player2.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+        </Avatar>
+        <div className="font-semibold">{match.player2.name}</div>
+        <div className="text-sm text-gray-500">Rating: {match.player2.rating}</div>
+      </div>
+    </div>
+
+    {/* Botón de acción */}
+    {match.status === 'pending' && (
+      <Button 
+        className="w-full mt-4" 
+        onClick={onEnterResult}
+      >
+        📝 Ingresar Resultado
+      </Button>
+    )}
+
+    {match.status === 'completed' && match.result && (
+      <div className="mt-4 p-4 bg-green-50 rounded-lg">
+        <div className="flex justify-between items-center">
+          <span className="font-semibold">Resultado:</span>
+          <span className="text-lg">
+            {match.result.sets.map(s => `${s.player1}-${s.player2}`).join(', ')}
+          </span>
+        </div>
+        <div className="text-sm text-gray-600 mt-2">
+          Ganador: {match.result.winner === match.player1.id ? match.player1.name : match.player2.name}
+        </div>
+      </div>
+    )}
+  </CardContent>
+</Card>
+```
+
+6. DATOS MOCK DE PARTIDOS:
+
+Crear archivo: client/src/data/mockMatches.ts
+```typescript
+export const mockMatches = [
+  {
+    id: "match-001",
+    tournamentId: "torneo-001",
+    tournamentName: "Campeonato Nacional 2025",
+    stage: "groups",
+    round: "groups",
+    mesa: 1,
+    status: "pending",
+    referee: "arbitro-001",
+    scheduledTime: new Date("2025-01-25T14:00:00"),
+    player1: {
+      id: "user1",
+      name: "Carlos Rivera",
+      birthYear: 1995,
+      rating: 1850,
+      photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=Carlos"
+    },
+    player2: {
+      id: "user2",
+      name: "María González",
+      birthYear: 1998,
+      rating: 1720,
+      photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=Maria"
+    }
+  },
+  {
+    id: "match-002",
+    tournamentId: "torneo-001",
+    tournamentName: "Campeonato Nacional 2025",
+    stage: "groups",
+    round: "groups",
+    mesa: 2,
+    status: "pending",
+    referee: "arbitro-001",
+    scheduledTime: new Date("2025-01-25T15:00:00"),
+    player1: {
+      id: "user3",
+      name: "Luis Pérez",
+      birthYear: 1992,
+      rating: 1680,
+      photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=Luis"
+    },
+    player2: {
+      id: "user4",
+      name: "Ana Martínez",
+      birthYear: 2000,
+      rating: 1590,
+      photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=Ana"
+    }
+  },
+  {
+    id: "match-003",
+    tournamentId: "torneo-001",
+    tournamentName: "Campeonato Nacional 2025",
+    stage: "semifinals",
+    round: "semifinals",
+    mesa: 1,
+    status: "completed",
+    referee: "arbitro-001",
+    player1: {
+      id: "user5",
+      name: "Jorge Sánchez",
+      birthYear: 1988,
+      rating: 1920,
+      photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=Jorge"
+    },
+    player2: {
+      id: "user1",
+      name: "Carlos Rivera",
+      birthYear: 1995,
+      rating: 1850,
+      photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=Carlos"
+    },
+    result: {
+      sets: [
+        { player1: 11, player2: 7 },
+        { player1: 9, player2: 11 },
+        { player1: 11, player2: 8 },
+        { player1: 11, player2: 9 }
+      ],
+      winner: "user5",
+      validatedBy: {
+        user5: { validated: true, timestamp: new Date() },
+        user1: { validated: true, timestamp: new Date() }
+      },
+      enteredBy: "arbitro-001",
+      enteredAt: new Date()
+    }
+  }
+];
+```
+
+Implementa todo esto ahora. Esto es la base para luego crear la página de scoring.
+
+⏱️ ESTO TOMARÁ UNOS 20-25 MINUTOS
+Mientras Agent trabaja, prepárate para probar:
+
+Login como árbitro: arbitro@fptm.pr / cualquier password
+Ver dashboard con 2 partidos pendientes
+Ver 1 partido completado
+
+
+¿Listo para que Agent implemente esto?RetryGood news! The login and dashboard system passed all its tests with flying colors. You can log in as an Referee, Owner, or Admin, and the system correctly sends you to your specific dashboard. All the expected pages, buttons, and tabs showed up and worked as they should, and logging out also worked pastedJ¡PERFECTO! 🎉🎉🎉
+El sistema está funcionando EXCELENTE. Replit Agent completó toda la Fase 1:
+✅ Login con roles
+✅ Dashboard de árbitro
+✅ Navegación dinámica
+✅ Datos mock
+✅ Testing exitoso
+
+🚀 AHORA SÍ: PÁGINA DE SCORING (Lo más importante)
+Copia y pega esto en Replit Agent:
+PERFECTO! Ahora implementa la página de SCORING DE PARTIDOS - Esta es la funcionalidad MÁS CRÍTICA del sistema.
+
+CREAR RUTA: /arbitro/match/:matchId
+
+Requisitos:
+
+1. LAYOUT DE LA PÁGINA:
+```tsx
+<div className="max-w-4xl mx-auto p-6">
+  {/* Header con info del partido */}
+  <Card className="mb-6">
+    <CardHeader>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold">{tournament.name}</h1>
+          <p className="text-gray-500">{stage} - Mesa {mesa}</p>
+        </div>
+        <Badge>{status}</Badge>
+      </div>
+    </CardHeader>
+  </Card>
+
+  {/* Jugadores */}
+  <Card className="mb-6">
+    <CardHeader>
+      <h2 className="text-xl font-bold">Jugadores</h2>
+    </CardHeader>
+    <CardContent>
+      <div className="grid grid-cols-3 gap-4 items-center">
+        {/* Player 1 */}
+        <div className="text-center">
+          <Avatar className="w-20 h-20 mx-auto mb-2">...</Avatar>
+          <div className="font-bold text-lg">{player1.name}</div>
+          <div className="text-sm text-gray-500">Rating: {player1.rating}</div>
+        </div>
+        
+        {/* VS */}
+        <div className="text-center text-3xl font-bold text-gray-400">VS</div>
+        
+        {/* Player 2 */}
+        <div className="text-center">
+          <Avatar className="w-20 h-20 mx-auto mb-2">...</Avatar>
+          <div className="font-bold text-lg">{player2.name}</div>
+          <div className="text-sm text-gray-500">Rating: {player2.rating}</div>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* Entrada de Resultados */}
+  {!showValidation && (
+    <Card className="mb-6">
+      <CardHeader>
+        <h2 className="text-xl font-bold">Ingreso de Resultado</h2>
+        <p className="text-sm text-gray-500">
+          Best of 5 sets - Primer jugador en ganar 3 sets gana el partido
+        </p>
+      </CardHeader>
+      <CardContent>
+        {/* 5 Sets */}
+        {[0, 1, 2, 3, 4].map(setIndex => (
+          <div key={setIndex} className="grid grid-cols-5 gap-4 mb-4 items-center">
+            <div className="col-span-1 text-right font-semibold">
+              Set {setIndex + 1}
+            </div>
+            
+            {/* Input Jugador 1 */}
+            <Input
+              type="number"
+              min="0"
+              max="30"
+              className="col-span-2 text-center text-xl font-bold"
+              placeholder="0"
+              value={sets[setIndex]?.player1 || ''}
+              onChange={(e) => handleSetChange(setIndex, 'player1', e.target.value)}
+            />
+            
+            {/* Separador */}
+            <div className="col-span-0 text-center text-xl font-bold">-</div>
+            
+            {/* Input Jugador 2 */}
+            <Input
+              type="number"
+              min="0"
+              max="30"
+              className="col-span-2 text-center text-xl font-bold"
+              placeholder="0"
+              value={sets[setIndex]?.player2 || ''}
+              onChange={(e) => handleSetChange(setIndex, 'player2', e.target.value)}
+            />
+            
+            {/* Indicador de ganador del set */}
+            {sets[setIndex] && isValidSet(sets[setIndex]) && (
+              <div className="col-span-1">
+                {getSetWinner(sets[setIndex]) === 'player1' && (
+                  <Badge variant="success">✓</Badge>
+                )}
+                {getSetWinner(sets[setIndex]) === 'player2' && (
+                  <Badge variant="success">✓</Badge>
+                )}
+              </div>
+            )}
+            
+            {/* Error de validación */}
+            {sets[setIndex] && !isValidSet(sets[setIndex]) && sets[setIndex].player1 && sets[setIndex].player2 && (
+              <Alert variant="destructive" className="col-span-5 mt-2">
+                <AlertDescription>
+                  Set inválido: Debe haber mínimo 11 puntos y diferencia de 2
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        ))}
+
+        {/* Resumen */}
+        {setsCount.player1 > 0 || setsCount.player2 > 0 && (
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+            <div className="flex justify-between items-center">
+              <div className="text-lg">
+                <span className="font-bold">{player1.name}</span>
+                <span className="mx-4 text-2xl font-bold">{setsCount.player1}</span>
+              </div>
+              <div className="text-gray-400 text-xl">-</div>
+              <div className="text-lg">
+                <span className="text-2xl font-bold">{setsCount.player2}</span>
+                <span className="mx-4 font-bold">{player2.name}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Observaciones */}
+        <div className="mt-6">
+          <Label>Observaciones (Opcional)</Label>
+          <Textarea
+            placeholder="Notas sobre el partido..."
+            value={observations}
+            onChange={(e) => setObservations(e.target.value)}
+            rows={3}
+          />
+        </div>
+
+        {/* Botón Continuar */}
+        <Button
+          className="w-full mt-6"
+          size="lg"
+          disabled={!canContinueToValidation()}
+          onClick={() => setShowValidation(true)}
+        >
+          📝 Continuar a Validación
+        </Button>
+      </CardContent>
+    </Card>
+  )}
+
+  {/* Componente de Validación */}
+  {showValidation && (
+    <BirthYearValidation
+      players={[
+        { 
+          id: match.player1.id, 
+          name: match.player1.name, 
+          correctBirthYear: match.player1.birthYear 
+        },
+        { 
+          id: match.player2.id, 
+          name: match.player2.name, 
+          correctBirthYear: match.player2.birthYear 
+        }
+      ]}
+      onAllValidated={handleAllValidated}
+    />
+  )}
+
+  {/* Botón Confirmar (solo después de validación) */}
+  {allValidated && (
+    <Button
+      className="w-full mt-6"
+      size="lg"
+      variant="default"
+      onClick={handleConfirmResult}
+    >
+      ✓ Confirmar y Guardar Resultado
+    </Button>
+  )}
+</div>
+```
+
+2. VALIDACIÓN DE SETS:
+```typescript
+function isValidSet(set: {player1: number, player2: number}): boolean {
+  const p1 = parseInt(set.player1);
+  const p2 = parseInt(set.player2);
+  
+  if (isNaN(p1) || isNaN(p2)) return false;
+  
+  // Al menos uno debe tener 11+
+  if (p1 < 11 && p2 < 11) return false;
+  
+  // Diferencia mínima de 2
+  const diff = Math.abs(p1 - p2);
+  if (diff < 2) return false;
+  
+  // Si está 10-10 o más, cualquiera puede ganar con +2
+  return true;
+}
+
+function getSetWinner(set: {player1: number, player2: number}): 'player1' | 'player2' | null {
+  if (!isValidSet(set)) return null;
+  return set.player1 > set.player2 ? 'player1' : 'player2';
+}
+
+function canContinueToValidation(): boolean {
+  // Contar sets válidos ganados
+  let p1Sets = 0;
+  let p2Sets = 0;
+  
+  sets.forEach(set => {
+    if (isValidSet(set)) {
+      const winner = getSetWinner(set);
+      if (winner === 'player1') p1Sets++;
+      if (winner === 'player2') p2Sets++;
+    }
+  });
+  
+  // Debe haber un ganador (3 sets)
+  return p1Sets === 3 || p2Sets === 3;
+}
+```
+
+3. AL CONFIRMAR RESULTADO:
+```typescript
+async function handleConfirmResult() {
+  try {
+    setLoading(true);
+    
+    // Determinar ganador
+    const winner = setsCount.player1 === 3 ? match.player1.id : match.player2.id;
+    
+    // Preparar datos
+    const resultData = {
+      matchId: match.id,
+      sets: sets.filter(s => isValidSet(s)),
+      winner,
+      observations,
+      validatedBy: {
+        [match.player1.id]: { validated: true, timestamp: new Date() },
+        [match.player2.id]: { validated: true, timestamp: new Date() }
+      },
+      enteredBy: currentUser.id,
+      enteredAt: new Date()
+    };
+    
+    // Calcular cambio de rating
+    const ratingChange = calculateRatingChange(match, resultData);
+    
+    // Actualizar en "base de datos" (por ahora localStorage)
+    const updatedMatch = {
+      ...match,
+      status: 'completed',
+      result: resultData
+    };
+    
+    // Actualizar ratings de jugadores
+    updatePlayerRating(match.player1.id, ratingChange.winner.change);
+    updatePlayerRating(match.player2.id, ratingChange.loser.change);
+    
+    // Mostrar mensaje de éxito
+    toast.success(
+      `Resultado guardado! 
+      ${ratingChange.winner.name}: +${ratingChange.winner.change} pts (${ratingChange.winner.oldRating} → ${ratingChange.winner.newRating})
+      ${ratingChange.loser.name}: ${ratingChange.loser.change} pts (${ratingChange.loser.oldRating} → ${ratingChange.loser.newRating})`
+    );
+    
+    // Redirigir
+    navigate('/arbitro/dashboard');
+    
+  } catch (error) {
+    toast.error('Error al guardar resultado');
+  } finally {
+    setLoading(false);
+  }
+}
+```
+
+4. IMPLEMENTAR calculateRatingChange():
+
+Usa la fórmula exacta que te di antes:
+- Base: Ganador +15, Perdedor -10
+- Bonus 3-0: +5/-3
+- Bonus 3-1: +3/-1
+- Bonus 3-2: +1/0
+
+5. RUTA EN App.tsx:
+```tsx
+<Route path="/arbitro/match/:matchId" element={
+  <ProtectedRoute role="arbitro">
+    <MatchScoring />
+  </ProtectedRoute>
+} />
+```
+
+Implementa todo esto AHORA. Esta es la funcionalidad más crítica del sistema.
