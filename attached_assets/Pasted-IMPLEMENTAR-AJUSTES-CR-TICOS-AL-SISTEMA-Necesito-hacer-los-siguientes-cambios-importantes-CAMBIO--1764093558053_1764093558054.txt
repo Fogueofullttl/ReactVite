@@ -1,0 +1,462 @@
+IMPLEMENTAR AJUSTES CRÍTICOS AL SISTEMA
+
+Necesito hacer los siguientes cambios importantes:
+
+CAMBIO 1: SIMPLIFICAR SISTEMA DE RATING
+
+Eliminar TODOS los bonus. Rating solo por ganar/perder según tabla FPTM oficial.
+
+Modificar client/src/lib/ratingSystem.ts:
+```typescript
+export function calculateRatingChange(
+  player1: Player,
+  player2: Player,
+  result: MatchResult
+): RatingChange {
+  const isFavorite1 = player1.rating >= player2.rating;
+  const favorite = isFavorite1 ? player1 : player2;
+  const underdog = isFavorite1 ? player2 : player1;
+  
+  const ratingDiff = Math.abs(player1.rating - player2.rating);
+  
+  const tableRow = RATING_TABLE.find(
+    row => ratingDiff >= row.minDiff && ratingDiff <= row.maxDiff
+  ) || RATING_TABLE[RATING_TABLE.length - 1];
+  
+  const favoriteWon = result.winner === favorite.id;
+  
+  let favoriteChange: number;
+  let underdogChange: number;
+  
+  if (favoriteWon) {
+    favoriteChange = tableRow.favoriteWins;
+    underdogChange = -tableRow.favoriteWins;
+  } else {
+    favoriteChange = -tableRow.underdogWins;
+    underdogChange = tableRow.underdogWins;
+  }
+  
+  // ELIMINAR TODOS LOS BONUS - Solo puntos base de la tabla
+  
+  const player1Change = isFavorite1 ? favoriteChange : underdogChange;
+  const player2Change = isFavorite1 ? underdogChange : favoriteChange;
+  
+  return {
+    player1: {
+      id: player1.id,
+      name: player1.name,
+      oldRating: player1.rating,
+      change: player1Change,
+      newRating: player1.rating + player1Change,
+      isFavorite: isFavorite1
+    },
+    player2: {
+      id: player2.id,
+      name: player2.name,
+      oldRating: player2.rating,
+      change: player2Change,
+      newRating: player2.rating + player2Change,
+      isFavorite: !isFavorite1
+    },
+    ratingDifference: ratingDiff,
+    appliedRow: tableRow
+  };
+}
+```
+
+CAMBIO 2: RATINGS SE ACTUALIZAN SOLO AL FINALIZAR TORNEO
+
+Modificar client/src/pages/admin/verify-results.tsx:
+
+En handleApprove, NO actualizar ratings inmediatamente:
+```typescript
+async function handleApprove(matchId: string) {
+  try {
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+
+    const ratingChange = calculateRatingChange(
+      match.player1,
+      match.player2,
+      match.result!
+    );
+
+    // SOLO marcar como verificado, NO aplicar ratings todavía
+    await updateMatch(matchId, {
+      status: 'verified',
+      verifiedBy: user!.uid,
+      verifiedAt: new Date(),
+      ratingChange // Guardar para aplicar después
+    });
+
+    // NO actualizar ratings aquí
+    // await updatePlayerRating(match.player1.id, ratingChange.player1.newRating);
+    // await updatePlayerRating(match.player2.id, ratingChange.player2.newRating);
+
+    await notifyResultVerified(
+      match.player1.id,
+      match.player2.id,
+      match.player1.name,
+      match.player2.name,
+      ratingChange
+    );
+
+    toast.success('Resultado aprobado - Los ratings se aplicarán al finalizar el torneo');
+
+  } catch (error) {
+    toast.error('Error al aprobar resultado');
+  }
+}
+```
+
+CAMBIO 3: BOTÓN "FINALIZAR TORNEO" Y APLICAR RATINGS
+
+Agregar a client/src/lib/tournaments.ts:
+```typescript
+import { updatePlayerRating } from './firestoreMatchStore';
+
+// Finalizar torneo y aplicar todos los ratings
+export async function finalizeTournament(tournamentId: string): Promise<void> {
+  const tournament = await getTournament(tournamentId);
+  if (!tournament) throw new Error('Torneo no encontrado');
+  
+  // Obtener TODOS los partidos verificados del torneo
+  const matchesSnapshot = await getDocs(
+    query(
+      collection(db, 'matches'),
+      where('tournamentId', '==', tournamentId),
+      where('status', '==', 'verified')
+    )
+  );
+  
+  const matches = matchesSnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
+  
+  // Aplicar cambios de rating de todos los partidos
+  const ratingUpdates: Map<string, number> = new Map();
+  
+  for (const match of matches) {
+    if (!match.ratingChange) continue;
+    
+    // Acumular cambios por jugador
+    const p1Id = match.player1.id;
+    const p2Id = match.player2.id;
+    
+    const p1Current = ratingUpdates.get(p1Id) || match.player1.rating;
+    const p2Current = ratingUpdates.get(p2Id) || match.player2.rating;
+    
+    ratingUpdates.set(p1Id, p1Current + match.ratingChange.player1.change);
+    ratingUpdates.set(p2Id, p2Current + match.ratingChange.player2.change);
+  }
+  
+  // Aplicar todos los cambios a Firestore
+  const updatePromises = Array.from(ratingUpdates.entries()).map(([userId, newRating]) =>
+    updatePlayerRating(userId, newRating)
+  );
+  
+  await Promise.all(updatePromises);
+  
+  // Marcar torneo como completado
+  await updateDoc(doc(db, 'tournaments', tournamentId), {
+    status: 'completed',
+    completedAt: Timestamp.now(),
+    updatedAt: Timestamp.now()
+  });
+}
+```
+
+Agregar botón en client/src/pages/admin/manage-tournament.tsx:
+```tsx
+{tournament.status === 'in_progress' && (
+  <Button 
+    variant="destructive"
+    onClick={async () => {
+      if (confirm('¿Finalizar torneo y aplicar todos los cambios de rating? Esta acción no se puede deshacer.')) {
+        try {
+          await finalizeTournament(tournament.id!);
+          await loadTournament();
+          toast({ title: 'Torneo finalizado - Ratings actualizados' });
+        } catch (error: any) {
+          toast({ title: error.message, variant: 'destructive' });
+        }
+      }
+    }}
+  >
+    Finalizar Torneo y Aplicar Ratings
+  </Button>
+)}
+```
+
+CAMBIO 4: EDICIÓN MANUAL DE GRUPOS Y BRACKETS
+
+Agregar a client/src/pages/admin/manage-tournament.tsx:
+
+En el tab "Grupos", permitir drag & drop o botones de mover:
+```tsx
+<TabsContent value="groups">
+  {!tournament.draw ? (
+    <Card>
+      <CardContent className="py-8 text-center text-gray-500">
+        Genera el sorteo para ver los grupos
+      </CardContent>
+    </Card>
+  ) : (
+    <>
+      <div className="mb-4 flex justify-end">
+        <Button 
+          variant="outline"
+          onClick={() => setEditingGroups(!editingGroups)}
+        >
+          {editingGroups ? 'Guardar Cambios' : 'Editar Grupos'}
+        </Button>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-4">
+        {tournament.draw.groups.map((group, groupIndex) => (
+          <Card key={group.groupId}>
+            <CardHeader>
+              <CardTitle>Grupo {group.groupId}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {group.participants.map((playerId, playerIndex) => (
+                  <div key={playerId} className="p-2 border rounded flex justify-between items-center">
+                    <span>ID: {playerId}</span>
+                    
+                    {editingGroups && (
+                      <div className="flex gap-1">
+                        {/* Mover a otro grupo */}
+                        <Select
+                          value={group.groupId}
+                          onValueChange={(newGroupId) => 
+                            handleMovePlayer(playerId, group.groupId, newGroupId)
+                          }
+                        >
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {tournament.draw!.groups.map(g => (
+                              <SelectItem key={g.groupId} value={g.groupId}>
+                                {g.groupId}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </>
+  )}
+</TabsContent>
+```
+
+Y la función:
+```typescript
+const handleMovePlayer = async (
+  playerId: string, 
+  fromGroupId: string, 
+  toGroupId: string
+) => {
+  if (!tournament?.id || !tournament.draw) return;
+  
+  const newGroups = tournament.draw.groups.map(group => {
+    if (group.groupId === fromGroupId) {
+      return {
+        ...group,
+        participants: group.participants.filter(p => p !== playerId)
+      };
+    }
+    if (group.groupId === toGroupId) {
+      return {
+        ...group,
+        participants: [...group.participants, playerId]
+      };
+    }
+    return group;
+  });
+  
+  await updateDoc(doc(db, 'tournaments', tournament.id), {
+    'draw.groups': newGroups,
+    updatedAt: Timestamp.now()
+  });
+  
+  await loadTournament();
+  toast({ title: 'Jugador movido exitosamente' });
+};
+```
+
+CAMBIO 5: EVITAR MISMO CLUB EN MISMO GRUPO
+
+Modificar generateDraw en client/src/lib/tournaments.ts:
+```typescript
+// Después de ordenar por rating, redistribuir para evitar mismo club
+const redistributedPlayers = redistributeByClub(sortedPlayers);
+
+function redistributeByClub(players: any[]): any[] {
+  // Agrupar por club
+  const byClub = new Map<string, any[]>();
+  players.forEach(p => {
+    const club = p.userData?.profile?.club || 'No Club';
+    if (!byClub.has(club)) byClub.set(club, []);
+    byClub.get(club)!.push(p);
+  });
+  
+  // Si un club tiene muchos jugadores, dispersarlos
+  const result: any[] = [];
+  const clubs = Array.from(byClub.keys());
+  
+  let clubIndex = 0;
+  while (result.length < players.length) {
+    const club = clubs[clubIndex % clubs.length];
+    const clubPlayers = byClub.get(club)!;
+    
+    if (clubPlayers.length > 0) {
+      result.push(clubPlayers.shift()!);
+    }
+    
+    clubIndex++;
+  }
+  
+  return result;
+}
+```
+
+CAMBIO 6: RESTRICCIONES DE INSCRIPCIÓN (Edad, Sexo, Rating)
+
+Actualizar Tournament type para incluir restrictions:
+```typescript
+export interface Tournament {
+  // ... campos existentes
+  restrictions: {
+    minAge?: number;        // Ej: 13 para U13
+    maxAge?: number;        // Ej: 18 para U18
+    gender?: 'male' | 'female' | 'any';
+    minRating?: number;     // Ej: 1500 para Elite
+    maxRating?: number;     // Ej: 1200 para Novatos
+  };
+}
+```
+
+Agregar en formulario de crear torneo:
+```tsx
+<Card className="mb-6">
+  <CardHeader>
+    <CardTitle>Restricciones de Inscripción</CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-4">
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label>Edad Mínima</Label>
+        <Input
+          type="number"
+          value={formData.minAge}
+          onChange={(e) => setFormData({...formData, minAge: e.target.value})}
+          placeholder="Ej: 13 para Sub-13"
+        />
+      </div>
+      
+      <div>
+        <Label>Edad Máxima</Label>
+        <Input
+          type="number"
+          value={formData.maxAge}
+          onChange={(e) => setFormData({...formData, maxAge: e.target.value})}
+          placeholder="Ej: 18 para Sub-18"
+        />
+      </div>
+    </div>
+    
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label>Rating Mínimo</Label>
+        <Input
+          type="number"
+          value={formData.minRating}
+          onChange={(e) => setFormData({...formData, minRating: e.target.value})}
+          placeholder="Ej: 1500 para Elite"
+        />
+      </div>
+      
+      <div>
+        <Label>Rating Máximo</Label>
+        <Input
+          type="number"
+          value={formData.maxRating}
+          onChange={(e) => setFormData({...formData, maxRating: e.target.value})}
+          placeholder="Ej: 1200 para Novatos"
+        />
+      </div>
+    </div>
+    
+    <div>
+      <Label>Género</Label>
+      <Select
+        value={formData.gender}
+        onValueChange={(value) => setFormData({...formData, gender: value})}
+      >
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="any">Cualquiera</SelectItem>
+          <SelectItem value="male">Solo Masculino</SelectItem>
+          <SelectItem value="female">Solo Femenino</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  </CardContent>
+</Card>
+```
+
+Y validar al inscribirse:
+```typescript
+export async function validateRegistration(
+  tournament: Tournament,
+  userId: string
+): Promise<{ valid: boolean; reason?: string }> {
+  const userDoc = await getDoc(doc(db, 'users', userId));
+  const userData = userDoc.data();
+  
+  if (!userData) return { valid: false, reason: 'Usuario no encontrado' };
+  
+  const profile = userData.profile;
+  const age = new Date().getFullYear() - profile.birthYear;
+  
+  // Validar edad
+  if (tournament.restrictions.minAge && age < tournament.restrictions.minAge) {
+    return { valid: false, reason: `Edad mínima: ${tournament.restrictions.minAge} años` };
+  }
+  
+  if (tournament.restrictions.maxAge && age > tournament.restrictions.maxAge) {
+    return { valid: false, reason: `Edad máxima: ${tournament.restrictions.maxAge} años` };
+  }
+  
+  // Validar rating
+  if (tournament.restrictions.minRating && profile.rating < tournament.restrictions.minRating) {
+    return { valid: false, reason: `Rating mínimo: ${tournament.restrictions.minRating}` };
+  }
+  
+  if (tournament.restrictions.maxRating && profile.rating > tournament.restrictions.maxRating) {
+    return { valid: false, reason: `Rating máximo: ${tournament.restrictions.maxRating}` };
+  }
+  
+  // Validar género (solo para singles)
+  if (tournament.restrictions.gender && tournament.restrictions.gender !== 'any') {
+    // Necesitarías agregar campo gender al perfil de usuario
+    // Por ahora podemos inferir del tipo de torneo
+  }
+  
+  return { valid: true };
+}
+```
+
+Implementa TODOS estos cambios AHORA.

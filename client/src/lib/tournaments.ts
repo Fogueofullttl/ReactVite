@@ -15,6 +15,14 @@ import { db } from './firebase';
 import { createTournamentSchema } from './schemas/tournament';
 import { createMatch } from './firestoreMatchStore';
 
+export interface TournamentRestrictions {
+  minAge?: number;
+  maxAge?: number;
+  gender?: 'male' | 'female' | 'any';
+  minRating?: number;
+  maxRating?: number;
+}
+
 export interface Tournament {
   id?: string;
   name: string;
@@ -39,6 +47,7 @@ export interface Tournament {
       enabled: boolean;
       format: 'single_elimination';
     };
+    restrictions?: TournamentRestrictions;
   };
   registrations: Array<{
     userId: string | string[];
@@ -247,6 +256,52 @@ export async function confirmRegistration(
   });
 }
 
+/**
+ * Redistribuye jugadores para evitar que jugadores del mismo club
+ * queden en el mismo grupo. Alterna entre clubes al asignar.
+ */
+function redistributeByClub(players: any[]): any[] {
+  // Agrupar por club
+  const byClub = new Map<string, any[]>();
+  players.forEach(p => {
+    const profile = p.userData?.profile || p.userData;
+    const club = profile?.club || 'Sin Club';
+    if (!byClub.has(club)) byClub.set(club, []);
+    byClub.get(club)!.push(p);
+  });
+  
+  // Si solo hay un club, no hay nada que redistribuir
+  if (byClub.size <= 1) return players;
+  
+  // Ordenar clubes por cantidad de jugadores (más a menos)
+  const clubs = Array.from(byClub.keys()).sort(
+    (a, b) => byClub.get(b)!.length - byClub.get(a)!.length
+  );
+  
+  // Dispersar jugadores alternando entre clubes
+  const result: any[] = [];
+  let clubIndex = 0;
+  
+  while (result.length < players.length) {
+    const club = clubs[clubIndex % clubs.length];
+    const clubPlayers = byClub.get(club)!;
+    
+    if (clubPlayers.length > 0) {
+      result.push(clubPlayers.shift()!);
+    }
+    
+    clubIndex++;
+    
+    // Si todos los clubes están vacíos en esta vuelta, resetear
+    if (result.length < players.length) {
+      const anyLeft = clubs.some(c => byClub.get(c)!.length > 0);
+      if (!anyLeft) break;
+    }
+  }
+  
+  return result;
+}
+
 export async function generateDraw(tournamentId: string): Promise<void> {
   const tournament = await getTournament(tournamentId);
   if (!tournament) throw new Error('Torneo no encontrado');
@@ -269,7 +324,11 @@ export async function generateDraw(tournamentId: string): Promise<void> {
     })
   );
   
+  // Ordenar por rating primero
   const sortedPlayers = players.sort((a, b) => b.rating - a.rating);
+  
+  // Redistribuir para evitar mismo club en mismo grupo
+  const redistributedPlayers = redistributeByClub(sortedPlayers);
   
   const draw: any = {
     groups: [],
@@ -278,7 +337,7 @@ export async function generateDraw(tournamentId: string): Promise<void> {
   
   if (tournament.config.groupStage.enabled) {
     const playersPerGroup = tournament.config.groupStage.playersPerGroup;
-    const numGroups = Math.ceil(sortedPlayers.length / playersPerGroup);
+    const numGroups = Math.ceil(redistributedPlayers.length / playersPerGroup);
     
     const groups: Array<{groupId: string; participants: string[]; matchIds: string[]}> = [];
     for (let i = 0; i < numGroups; i++) {
@@ -289,7 +348,7 @@ export async function generateDraw(tournamentId: string): Promise<void> {
       });
     }
     
-    sortedPlayers.forEach((player, index) => {
+    redistributedPlayers.forEach((player, index) => {
       const roundNumber = Math.floor(index / numGroups);
       const positionInRound = index % numGroups;
       const groupIndex = roundNumber % 2 === 0 
@@ -304,7 +363,7 @@ export async function generateDraw(tournamentId: string): Promise<void> {
         tournament,
         group.groupId,
         group.participants,
-        sortedPlayers
+        redistributedPlayers
       );
       group.matchIds = matchIds;
     }
@@ -454,4 +513,199 @@ function determineFirstRound(numPlayers: number): string {
   if (numPlayers <= 8) return 'Cuartos de Final';
   if (numPlayers <= 16) return 'Octavos de Final';
   return 'Ronda de 32';
+}
+
+/**
+ * Actualiza el rating de un jugador en Firestore
+ */
+export async function updatePlayerRating(userId: string, newRating: number): Promise<void> {
+  const userRef = doc(db, 'users', userId);
+  const userDoc = await getDoc(userRef);
+  
+  if (userDoc.exists()) {
+    const userData = userDoc.data();
+    if (userData.profile) {
+      await updateDoc(userRef, {
+        'profile.rating': newRating,
+        updatedAt: Timestamp.now()
+      });
+    } else {
+      await updateDoc(userRef, {
+        rating: newRating,
+        updatedAt: Timestamp.now()
+      });
+    }
+  }
+}
+
+/**
+ * Finaliza un torneo y aplica todos los cambios de rating acumulados.
+ * Los ratings se aplican basados en los ratingChange guardados en cada match verificado.
+ */
+export async function finalizeTournament(tournamentId: string): Promise<{
+  playersUpdated: number;
+  ratingChanges: Array<{ playerId: string; oldRating: number; newRating: number; totalChange: number }>;
+}> {
+  const tournament = await getTournament(tournamentId);
+  if (!tournament) throw new Error('Torneo no encontrado');
+  
+  if (tournament.status === 'completed') {
+    throw new Error('El torneo ya ha sido finalizado');
+  }
+  
+  // Obtener TODOS los partidos verificados del torneo
+  const matchesQuery = query(
+    collection(db, 'matches'),
+    where('tournamentId', '==', tournamentId),
+    where('status', '==', 'verified')
+  );
+  
+  const matchesSnapshot = await getDocs(matchesQuery);
+  const matches = matchesSnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  })) as any[];
+  
+  if (matches.length === 0) {
+    throw new Error('No hay partidos verificados para aplicar');
+  }
+  
+  // Acumular cambios de rating por jugador
+  const ratingUpdates: Map<string, { 
+    oldRating: number; 
+    totalChange: number;
+    currentRating: number;
+  }> = new Map();
+  
+  for (const match of matches) {
+    if (!match.result?.ratingChange) continue;
+    
+    const p1Id = match.player1.id;
+    const p2Id = match.player2.id;
+    const rc = match.result.ratingChange;
+    
+    // Jugador 1
+    if (!ratingUpdates.has(p1Id)) {
+      ratingUpdates.set(p1Id, {
+        oldRating: rc.player1.oldRating,
+        totalChange: 0,
+        currentRating: rc.player1.oldRating
+      });
+    }
+    const p1Data = ratingUpdates.get(p1Id)!;
+    p1Data.totalChange += rc.player1.change;
+    p1Data.currentRating += rc.player1.change;
+    
+    // Jugador 2
+    if (!ratingUpdates.has(p2Id)) {
+      ratingUpdates.set(p2Id, {
+        oldRating: rc.player2.oldRating,
+        totalChange: 0,
+        currentRating: rc.player2.oldRating
+      });
+    }
+    const p2Data = ratingUpdates.get(p2Id)!;
+    p2Data.totalChange += rc.player2.change;
+    p2Data.currentRating += rc.player2.change;
+  }
+  
+  // Aplicar todos los cambios a Firestore
+  const updatePromises = Array.from(ratingUpdates.entries()).map(([userId, data]) =>
+    updatePlayerRating(userId, data.currentRating)
+  );
+  
+  await Promise.all(updatePromises);
+  
+  // Marcar torneo como completado
+  await updateDoc(doc(db, 'tournaments', tournamentId), {
+    status: 'completed',
+    completedAt: Timestamp.now(),
+    updatedAt: Timestamp.now()
+  });
+  
+  // Preparar resumen de cambios
+  const ratingChanges = Array.from(ratingUpdates.entries()).map(([playerId, data]) => ({
+    playerId,
+    oldRating: data.oldRating,
+    newRating: data.currentRating,
+    totalChange: data.totalChange
+  }));
+  
+  return {
+    playersUpdated: ratingUpdates.size,
+    ratingChanges
+  };
+}
+
+/**
+ * Valida si un usuario cumple con las restricciones del torneo
+ */
+export async function validateRegistration(
+  tournament: Tournament,
+  userId: string
+): Promise<{ valid: boolean; reason?: string }> {
+  const restrictions = tournament.config.restrictions;
+  
+  // Si no hay restricciones, permitir inscripción
+  if (!restrictions) {
+    return { valid: true };
+  }
+  
+  const userDoc = await getDoc(doc(db, 'users', userId));
+  const userData = userDoc.data();
+  
+  if (!userData) {
+    return { valid: false, reason: 'Usuario no encontrado' };
+  }
+  
+  const profile = userData.profile || userData;
+  const currentYear = new Date().getFullYear();
+  const age = profile.birthYear ? currentYear - profile.birthYear : null;
+  const rating = profile.rating || 1000;
+  const userGender = profile.gender;
+  
+  // Validar edad mínima
+  if (restrictions.minAge && age !== null && age < restrictions.minAge) {
+    return { 
+      valid: false, 
+      reason: `Edad minima requerida: ${restrictions.minAge} anos. Tu edad: ${age} anos` 
+    };
+  }
+  
+  // Validar edad máxima
+  if (restrictions.maxAge && age !== null && age > restrictions.maxAge) {
+    return { 
+      valid: false, 
+      reason: `Edad maxima permitida: ${restrictions.maxAge} anos. Tu edad: ${age} anos` 
+    };
+  }
+  
+  // Validar género
+  if (restrictions.gender && restrictions.gender !== 'any') {
+    if (userGender && userGender !== restrictions.gender) {
+      const genderLabel = restrictions.gender === 'male' ? 'masculino' : 'femenino';
+      return { 
+        valid: false, 
+        reason: `Este torneo es exclusivamente ${genderLabel}` 
+      };
+    }
+  }
+  
+  // Validar rating mínimo
+  if (restrictions.minRating && rating < restrictions.minRating) {
+    return { 
+      valid: false, 
+      reason: `Rating minimo requerido: ${restrictions.minRating}. Tu rating: ${rating}` 
+    };
+  }
+  
+  // Validar rating máximo
+  if (restrictions.maxRating && rating > restrictions.maxRating) {
+    return { 
+      valid: false, 
+      reason: `Rating maximo permitido: ${restrictions.maxRating}. Tu rating: ${rating}` 
+    };
+  }
+  
+  return { valid: true };
 }

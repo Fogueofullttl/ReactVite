@@ -294,27 +294,20 @@ export async function savePlayerResult(
 }
 
 /**
- * Aprueba un resultado pendiente de verificación
+ * Aprueba un resultado pendiente de verificación.
+ * NOTA: Los ratings NO se aplican inmediatamente.
+ * Se guardan en ratingChange y se aplicarán al finalizar el torneo.
  */
 export async function approveResult(matchId: string, adminId: string): Promise<Match | null> {
   try {
     const match = await getMatch(matchId);
     if (!match || !match.result) return null;
     
-    // Aplicar cambios de rating
-    const updatedPlayer1 = { 
-      ...match.player1, 
-      rating: match.result.ratingChange!.player1.newRating 
-    };
-    const updatedPlayer2 = { 
-      ...match.player2, 
-      rating: match.result.ratingChange!.player2.newRating 
-    };
+    // NO actualizar ratings aquí - se aplican al finalizar torneo
+    // Solo marcar como verificado y guardar el ratingChange para aplicar después
     
     return await updateMatch(matchId, {
       status: "verified" as const,
-      player1: updatedPlayer1,
-      player2: updatedPlayer2,
       verifiedBy: adminId,
       verifiedAt: new Date(),
       waitingAdminApproval: false

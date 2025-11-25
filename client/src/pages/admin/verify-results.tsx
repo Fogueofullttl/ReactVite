@@ -119,24 +119,18 @@ export default function AdminVerifyResults() {
           title: "Resultado Aprobado",
           description: (
             <div className="space-y-2 text-sm">
-              <div>El resultado ha sido verificado y los ratings actualizados.</div>
+              <div>El resultado ha sido verificado. Los ratings se aplicaran al finalizar el torneo.</div>
               <div className="space-y-1 mt-2">
                 <div className="flex justify-between items-center">
                   <span>{rc.player1.name}:</span>
                   <span className={getRatingChangeColor(rc.player1.change)}>
-                    {formatRatingChange(rc.player1.change)} pts 
-                    <span className="text-xs ml-1 text-muted-foreground">
-                      ({rc.player1.oldRating} → {rc.player1.newRating})
-                    </span>
+                    {formatRatingChange(rc.player1.change)} pts (pendiente)
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span>{rc.player2.name}:</span>
                   <span className={getRatingChangeColor(rc.player2.change)}>
-                    {formatRatingChange(rc.player2.change)} pts
-                    <span className="text-xs ml-1 text-muted-foreground">
-                      ({rc.player2.oldRating} → {rc.player2.newRating})
-                    </span>
+                    {formatRatingChange(rc.player2.change)} pts (pendiente)
                   </span>
                 </div>
               </div>

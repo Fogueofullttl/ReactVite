@@ -4,13 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
-import { type Tournament } from '@/lib/tournaments';
+import { type Tournament, finalizeTournament } from '@/lib/tournaments';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Users, Trophy, Calendar, MapPin, Clock, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Users, Trophy, Calendar, MapPin, Clock, CheckCircle2, AlertCircle, Loader2, Flag, Edit2 } from 'lucide-react';
 
 interface TournamentFromAPI {
   id: string;
@@ -26,7 +27,14 @@ interface TournamentFromAPI {
   maxParticipants?: number;
   status: string;
   createdBy?: string;
-  registrations?: Array<{ status: string; playerId?: string }>;
+  registrations?: Array<{ 
+    status: string; 
+    playerId?: string;
+    userId?: string | string[];
+    registeredAt?: string;
+    paymentCode?: string;
+    paymentStatus?: string;
+  }>;
   draw?: { groups: any[]; eliminationBracket?: { matchIds: string[]; round: string } };
 }
 
@@ -36,6 +44,8 @@ export default function ManageTournament() {
   
   const [generating, setGenerating] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [finalizingTournament, setFinalizingTournament] = useState(false);
+  const [editingGroups, setEditingGroups] = useState(false);
 
   const { data: tournament, isLoading: loading, error } = useQuery<TournamentFromAPI>({
     queryKey: ['/api/tournaments', params?.id],
@@ -106,6 +116,68 @@ export default function ManageTournament() {
       toast({ title: error.message || 'Error al generar sorteo', variant: 'destructive' });
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleFinalizeTournament = async () => {
+    if (!params?.id) return;
+    
+    const confirmed = window.confirm(
+      'Finalizar torneo y aplicar todos los cambios de rating? Esta accion no se puede deshacer.'
+    );
+    
+    if (!confirmed) return;
+    
+    setFinalizingTournament(true);
+    try {
+      const result = await finalizeTournament(params.id);
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', params?.id] });
+      
+      toast({ 
+        title: 'Torneo Finalizado',
+        description: `Ratings actualizados para ${result.playersUpdated} jugadores`
+      });
+    } catch (error: any) {
+      toast({ 
+        title: 'Error',
+        description: error.message || 'No se pudo finalizar el torneo',
+        variant: 'destructive' 
+      });
+    } finally {
+      setFinalizingTournament(false);
+    }
+  };
+
+  const handleMovePlayer = async (playerId: string, fromGroupId: string, toGroupId: string) => {
+    if (!params?.id || !tournament?.draw || fromGroupId === toGroupId) return;
+    
+    try {
+      const newGroups = tournament.draw.groups.map(group => {
+        if (group.groupId === fromGroupId) {
+          return {
+            ...group,
+            participants: group.participants.filter((p: string) => p !== playerId)
+          };
+        }
+        if (group.groupId === toGroupId) {
+          return {
+            ...group,
+            participants: [...group.participants, playerId]
+          };
+        }
+        return group;
+      });
+      
+      await updateTournament.mutateAsync({ 
+        draw: { 
+          ...tournament.draw, 
+          groups: newGroups 
+        } 
+      });
+      
+      toast({ title: 'Jugador movido exitosamente' });
+    } catch (error) {
+      toast({ title: 'Error al mover jugador', variant: 'destructive' });
     }
   };
 
@@ -259,6 +331,18 @@ export default function ManageTournament() {
             </Button>
           )}
 
+          {tournament.status === 'in_progress' && (
+            <Button 
+              variant="destructive"
+              onClick={handleFinalizeTournament}
+              disabled={finalizingTournament}
+              data-testid="button-finalize-tournament"
+            >
+              <Flag className="w-4 h-4 mr-2" />
+              {finalizingTournament ? 'Finalizando...' : 'Finalizar Torneo y Aplicar Ratings'}
+            </Button>
+          )}
+
           {confirmedCount === 0 && tournament.status === 'registration_closed' && (
             <p className="text-sm text-muted-foreground flex items-center">
               <AlertCircle className="w-4 h-4 mr-1" />
@@ -340,11 +424,15 @@ export default function ManageTournament() {
                     >
                       <div>
                         <div className="font-semibold font-mono">
-                          {Array.isArray(reg.userId) ? reg.userId.join(', ') : reg.userId}
+                          {reg.userId 
+                            ? (Array.isArray(reg.userId) ? reg.userId.join(', ') : reg.userId)
+                            : reg.playerId || 'ID no disponible'}
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          {format(reg.registeredAt, 'PPp', { locale: es })}
-                        </div>
+                        {reg.registeredAt && (
+                          <div className="text-sm text-muted-foreground">
+                            {format(new Date(reg.registeredAt), 'PPp', { locale: es })}
+                          </div>
+                        )}
                         {reg.paymentCode && (
                           <div className="text-sm text-muted-foreground">
                             Codigo ATH: <span className="font-mono">{reg.paymentCode}</span>
@@ -393,38 +481,73 @@ export default function ManageTournament() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {groups.map((group) => (
-                <Card key={group.groupId} data-testid={`group-card-${group.groupId}`}>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Trophy className="w-5 h-5 text-blue-600" />
-                      Grupo {group.groupId}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {group.participants.map((playerId, idx) => (
-                        <div 
-                          key={playerId} 
-                          className="p-2 border rounded flex items-center gap-2"
-                          data-testid={`group-${group.groupId}-player-${idx}`}
-                        >
-                          <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-semibold">
-                            {idx + 1}
-                          </span>
-                          <span className="font-mono text-sm">{playerId}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-4 text-sm text-muted-foreground flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      {group.matchIds.length} partidos programados
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <>
+              <div className="mb-4 flex justify-end">
+                <Button 
+                  variant="outline"
+                  onClick={() => setEditingGroups(!editingGroups)}
+                  data-testid="button-toggle-edit-groups"
+                >
+                  <Edit2 className="w-4 h-4 mr-2" />
+                  {editingGroups ? 'Terminar Edicion' : 'Editar Grupos'}
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {groups.map((group) => (
+                  <Card key={group.groupId} data-testid={`group-card-${group.groupId}`}>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Trophy className="w-5 h-5 text-blue-600" />
+                        Grupo {group.groupId}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {group.participants.map((playerId: string, idx: number) => (
+                          <div 
+                            key={playerId} 
+                            className="p-2 border rounded flex items-center justify-between gap-2"
+                            data-testid={`group-${group.groupId}-player-${idx}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-semibold">
+                                {idx + 1}
+                              </span>
+                              <span className="font-mono text-sm">{playerId}</span>
+                            </div>
+                            
+                            {editingGroups && (
+                              <Select
+                                value={group.groupId}
+                                onValueChange={(newGroupId) => 
+                                  handleMovePlayer(playerId, group.groupId, newGroupId)
+                                }
+                              >
+                                <SelectTrigger className="w-24" data-testid={`select-move-${group.groupId}-${idx}`}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {groups.map(g => (
+                                    <SelectItem key={g.groupId} value={g.groupId}>
+                                      Grupo {g.groupId}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-4 text-sm text-muted-foreground flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        {group.matchIds.length} partidos programados
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
           )}
         </TabsContent>
 

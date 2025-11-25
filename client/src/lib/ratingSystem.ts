@@ -60,11 +60,20 @@ export interface RatingChange {
   appliedRow: RatingTable;
 }
 
+/**
+ * Calcula el cambio de rating basado SOLO en la tabla FPTM oficial.
+ * SIN BONUS - Solo puntos base según diferencia de rating.
+ */
 export function calculateRatingChange(
   player1: Player,
   player2: Player,
   result: MatchResult
 ): RatingChange {
+  // Determinar quién es el favorito (mayor o igual rating)
+  const isFavorite1 = player1.rating >= player2.rating;
+  const favorite = isFavorite1 ? player1 : player2;
+  const underdog = isFavorite1 ? player2 : player1;
+  
   // Calcular diferencia absoluta
   const ratingDiff = Math.abs(player1.rating - player2.rating);
   
@@ -73,44 +82,24 @@ export function calculateRatingChange(
     row => ratingDiff >= row.minDiff && (row.maxDiff === null || ratingDiff <= row.maxDiff)
   ) || RATING_TABLE[RATING_TABLE.length - 1];
   
-  // Caso especial: ratings iguales (diferencia 0-12)
-  const ratingsEqual = ratingDiff <= 12;
+  const favoriteWon = result.winner === favorite.id;
   
-  let player1Change: number;
-  let player2Change: number;
+  // Calcular cambios SOLO con puntos base de la tabla - SIN BONUS
+  let favoriteChange: number;
+  let underdogChange: number;
   
-  if (ratingsEqual) {
-    // Cuando son iguales, el ganador obtiene +8 y el perdedor -8
-    if (result.winner === player1.id) {
-      player1Change = tableRow.favoriteWins;   // +8 para ganador
-      player2Change = -tableRow.favoriteWins;  // -8 para perdedor
-    } else {
-      player1Change = -tableRow.favoriteWins;  // -8 para perdedor
-      player2Change = tableRow.favoriteWins;   // +8 para ganador
-    }
+  if (favoriteWon) {
+    favoriteChange = tableRow.favoriteWins;
+    underdogChange = -tableRow.favoriteWins;
   } else {
-    // Determinar quién es el favorito (mayor rating)
-    const isFavorite1 = player1.rating > player2.rating;
-    const favorite = isFavorite1 ? player1 : player2;
-    const favoriteWon = result.winner === favorite.id;
-    
-    // Calcular cambios según tabla
-    let favoriteChange: number;
-    let underdogChange: number;
-    
-    if (favoriteWon) {
-      favoriteChange = tableRow.favoriteWins;
-      underdogChange = -tableRow.favoriteWins;
-    } else {
-      // Underdog gana (upset)
-      favoriteChange = -tableRow.underdogWins;
-      underdogChange = tableRow.underdogWins;
-    }
-    
-    // Asignar cambios según quién es favorito
-    player1Change = isFavorite1 ? favoriteChange : underdogChange;
-    player2Change = isFavorite1 ? underdogChange : favoriteChange;
+    // Underdog gana (upset)
+    favoriteChange = -tableRow.underdogWins;
+    underdogChange = tableRow.underdogWins;
   }
+  
+  // Asignar cambios según quién es favorito
+  const player1Change = isFavorite1 ? favoriteChange : underdogChange;
+  const player2Change = isFavorite1 ? underdogChange : favoriteChange;
   
   return {
     player1: {
@@ -119,7 +108,7 @@ export function calculateRatingChange(
       oldRating: player1.rating,
       change: player1Change,
       newRating: player1.rating + player1Change,
-      isFavorite: ratingsEqual ? false : player1.rating > player2.rating
+      isFavorite: isFavorite1
     },
     player2: {
       id: player2.id,
@@ -127,7 +116,7 @@ export function calculateRatingChange(
       oldRating: player2.rating,
       change: player2Change,
       newRating: player2.rating + player2Change,
-      isFavorite: ratingsEqual ? false : player2.rating > player1.rating
+      isFavorite: !isFavorite1
     },
     ratingDifference: ratingDiff,
     appliedRow: tableRow

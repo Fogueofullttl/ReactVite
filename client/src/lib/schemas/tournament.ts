@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+export const tournamentRestrictionsSchema = z.object({
+  minAge: z.number().int().positive().optional(),
+  maxAge: z.number().int().positive().optional(),
+  gender: z.enum(['male', 'female', 'any']).optional(),
+  minRating: z.number().int().nonnegative().optional(),
+  maxRating: z.number().int().positive().optional(),
+});
+
 export const tournamentConfigSchema = z.object({
   maxParticipants: z.number().int().positive().nullable(),
   registrationDeadline: z.date(),
@@ -15,6 +23,7 @@ export const tournamentConfigSchema = z.object({
     enabled: z.boolean(),
     format: z.literal('single_elimination'),
   }),
+  restrictions: tournamentRestrictionsSchema.optional(),
 });
 
 export const tournamentRegistrationSchema = z.object({
