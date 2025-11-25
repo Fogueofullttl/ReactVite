@@ -36,6 +36,7 @@ export const tournaments = pgTable("tournaments", {
   name: text("name").notNull(),
   type: tournamentTypeEnum("type").notNull(),
   genderCategory: genderCategoryEnum("gender_category").notNull(),
+  events: text("events").array().notNull(),
   registrationDeadline: timestamp("registration_deadline").notNull(),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
