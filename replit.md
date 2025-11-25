@@ -32,7 +32,11 @@ The system employs a client-server architecture.
         -   **Backward Compatibility:** Maintains localStorage integration for compatibility with existing matchStore system
         -   **Known Limitation:** Google Sign-In uses default birthYear (current year - 25) - future enhancement needed to capture actual birthYear post-registration
     -   **Mock Match Data:** Comprehensive match data structure with example matches in various states (scheduled, pending_result, pending_verification, verified, disputed, rejected).
-    -   **Match Store (Global State System):** In-memory state management system (`client/src/lib/matchStore.ts`) with localStorage persistence and global reactivity via events for real-time updates across dashboards. Handles saving results by both referees and players, approval/rejection by admins, and automatic rating change calculations and application.
+    -   **Match Store (Firestore):** Complete migration to Firestore for match data management (`client/src/lib/firestoreMatchStore.ts`) with real-time subscriptions, atomic CRUD operations, and proper Timestamp conversions. Features:
+        -   **Real-time Subscriptions:** Auto-updating dashboards for arbitros, jugadores, and admins via `subscribeToMatches`
+        -   **Atomic Operations:** `saveMatchResult` (árbitro), `savePlayerResult` (jugador), `approveResult`, `rejectResult` with full validation
+        -   **Data Integrity:** Proper status transitions, setsCount calculation, rating change storage, and verification metadata
+        -   **Seed System:** `seedFirestore.ts` for loading mock data into Firestore with proper format conversion
     -   **Dynamic Navigation:** Sidebar uses `useAuth` hook for role-specific menus and real-time badge counters for pending matches.
     -   **Match Scoring - Dual System:** Implemented for both referees (`/arbitro/match/:matchId`) and players (`/jugador/match/:matchId`).
         -   **Referee Scoring:** Marks matches as "verified" directly.
@@ -51,8 +55,9 @@ The system employs a client-server architecture.
     -   **Member Number Generation:** Automatic, auto-incrementing member numbers in the format `PRTTM-000001` using Firestore transaction-based counter for uniqueness under concurrency.
 -   **System Design Choices:**
     -   **Modular Design:** Clear separation between `shared`, `server`, and `client` directories.
-    -   **Hybrid Storage Strategy:** Firebase Auth + Firestore for user authentication and profiles, with in-memory `MemStorage` for match/tournament data (future migration to Firestore planned).
+    -   **Full Firebase Integration:** Firebase Auth + Firestore for complete data persistence (users, matches). Backend uses in-memory `MemStorage` for tournaments/registrations (migration planned).
     -   **Transaction Safety:** Critical operations (member number generation) use Firestore transactions to guarantee data integrity under concurrent access.
+    -   **Real-time Architecture:** Dashboards use Firestore's `onSnapshot` for live data updates without manual polling.
 
 ## External Dependencies
 -   **Firebase:** Actively used for authentication (Firebase Auth) and user profile storage (Firestore). Configured services:

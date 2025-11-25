@@ -14,27 +14,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, XCircle, Clock, Trophy, AlertCircle, TrendingUp, TrendingDown } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Trophy, AlertCircle, TrendingUp, TrendingDown, Sprout } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { matchStore } from "@/lib/matchStore";
-import { calculateRatingChange, formatRatingChange, getRatingChangeColor } from "@/lib/ratingSystem";
+import { subscribeToMatches, approveResult, rejectResult } from "@/lib/firestoreMatchStore";
+import { formatRatingChange, getRatingChangeColor } from "@/lib/ratingSystem";
+import type { Match } from "@/data/mockMatches";
 
 export default function AdminVerifyResults() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [matches, setMatches] = useState(matchStore.getMatches());
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
   const [rejectingMatchId, setRejectingMatchId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [isSeeding, setIsSeeding] = useState(false);
 
   useEffect(() => {
-    setMatches(matchStore.getMatches());
+    // Suscripción en tiempo real a todos los partidos
+    const unsubscribe = subscribeToMatches(
+      (data) => {
+        setMatches(data);
+        setLoading(false);
+      }
+      // Sin filtros = todos los partidos
+    );
     
-    const handleMatchesUpdate = () => {
-      setMatches(matchStore.getMatches());
-    };
-    
-    window.addEventListener("matches:updated", handleMatchesUpdate);
-    return () => window.removeEventListener("matches:updated", handleMatchesUpdate);
+    return () => unsubscribe();
   }, []);
 
   const pendingMatches = matches.filter(m => m.status === 'pending_verification');
@@ -66,23 +71,39 @@ export default function AdminVerifyResults() {
     }).format(new Date(date));
   };
 
-  const handleApprove = (matchId: string) => {
+  const handleSeedData = async () => {
+    setIsSeeding(true);
+    try {
+      const { seedMatches } = await import('@/lib/seedFirestore');
+      const result = await seedMatches();
+      
+      toast({
+        title: "✓ Datos Cargados",
+        description: `${result.success} partidos mock cargados exitosamente en Firestore.`,
+      });
+    } catch (error) {
+      console.error("Error cargando datos:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los datos mock.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
+  const handleApprove = async (matchId: string) => {
     if (!user) return;
 
-    const match = matchStore.getMatch(matchId);
+    const match = matches.find(m => m.id === matchId);
     if (!match || !match.result) return;
 
-    // Calculate rating change for toast
-    const ratingChange = calculateRatingChange(
-      match.player1,
-      match.player2,
-      { sets: match.result.sets, winner: match.result.winner }
-    );
-
     try {
-      const updatedMatch = matchStore.approveResult(matchId, user.id);
+      const updatedMatch = await approveResult(matchId, user.id);
       
-      if (updatedMatch) {
+      if (updatedMatch && updatedMatch.result?.ratingChange) {
+        const rc = updatedMatch.result.ratingChange;
         toast({
           title: "✓ Resultado Aprobado",
           description: (
@@ -90,20 +111,20 @@ export default function AdminVerifyResults() {
               <div>El resultado ha sido verificado y los ratings actualizados.</div>
               <div className="space-y-1 mt-2">
                 <div className="flex justify-between items-center">
-                  <span>{ratingChange.player1.name}:</span>
-                  <span className={getRatingChangeColor(ratingChange.player1.change)}>
-                    {formatRatingChange(ratingChange.player1.change)} pts 
+                  <span>{rc.player1.name}:</span>
+                  <span className={getRatingChangeColor(rc.player1.change)}>
+                    {formatRatingChange(rc.player1.change)} pts 
                     <span className="text-xs ml-1 text-muted-foreground">
-                      ({ratingChange.player1.oldRating} → {ratingChange.player1.newRating})
+                      ({rc.player1.oldRating} → {rc.player1.newRating})
                     </span>
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span>{ratingChange.player2.name}:</span>
-                  <span className={getRatingChangeColor(ratingChange.player2.change)}>
-                    {formatRatingChange(ratingChange.player2.change)} pts
+                  <span>{rc.player2.name}:</span>
+                  <span className={getRatingChangeColor(rc.player2.change)}>
+                    {formatRatingChange(rc.player2.change)} pts
                     <span className="text-xs ml-1 text-muted-foreground">
-                      ({ratingChange.player2.oldRating} → {ratingChange.player2.newRating})
+                      ({rc.player2.oldRating} → {rc.player2.newRating})
                     </span>
                   </span>
                 </div>
@@ -124,7 +145,7 @@ export default function AdminVerifyResults() {
     }
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (!user || !rejectingMatchId || !rejectReason.trim()) {
       toast({
         title: "Error",
@@ -135,7 +156,7 @@ export default function AdminVerifyResults() {
     }
 
     try {
-      const updatedMatch = matchStore.rejectResult(rejectingMatchId, user.id, rejectReason);
+      const updatedMatch = await rejectResult(rejectingMatchId, user.id, rejectReason);
       
       if (updatedMatch) {
         toast({
@@ -161,12 +182,9 @@ export default function AdminVerifyResults() {
   const MatchVerificationCard = ({ match }: { match: typeof matches[0] }) => {
     if (!match.result) return null;
 
-    // Calculate projected rating change
-    const projectedChange = calculateRatingChange(
-      match.player1,
-      match.player2,
-      { sets: match.result.sets, winner: match.result.winner }
-    );
+    // Rating change is already calculated and stored in result
+    const projectedChange = match.result.ratingChange;
+    if (!projectedChange) return null;
 
     return (
       <Card className="mb-4" data-testid={`match-card-${match.id}`}>
@@ -421,11 +439,23 @@ export default function AdminVerifyResults() {
 
   return (
     <div className="max-w-7xl mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Verificación de Resultados</h1>
-        <p className="text-muted-foreground">
-          Aprueba o rechaza los resultados reportados por los jugadores
-        </p>
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Verificación de Resultados</h1>
+          <p className="text-muted-foreground">
+            Aprueba o rechaza los resultados reportados por los jugadores
+          </p>
+        </div>
+        <Button
+          onClick={handleSeedData}
+          disabled={isSeeding}
+          variant="outline"
+          className="flex items-center gap-2"
+          data-testid="button-seed-data"
+        >
+          <Sprout className="h-4 w-4" />
+          {isSeeding ? "Cargando..." : "🌱 Cargar Datos Mock"}
+        </Button>
       </div>
 
       {/* Stats */}

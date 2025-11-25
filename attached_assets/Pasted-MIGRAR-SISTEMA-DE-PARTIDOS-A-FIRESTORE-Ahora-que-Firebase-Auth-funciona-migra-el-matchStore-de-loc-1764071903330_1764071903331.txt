@@ -1,0 +1,338 @@
+MIGRAR SISTEMA DE PARTIDOS A FIRESTORE
+
+Ahora que Firebase Auth funciona, migra el matchStore de localStorage a Firestore.
+
+PASO 1: Crear colección 'matches' en Firestore
+
+Estructura:
+matches/{matchId}
+
+id: string
+tournamentId: string
+tournamentName: string
+stage: "groups" | "elimination"
+round: "groups" | "quarterfinals" | "semifinals" | "final"
+mesa: number
+status: "scheduled" | "pending_result" | "pending_verification" | "verified" | "rejected"
+referee: string (uid) | null
+
+player1: {
+id: string (uid)
+name: string
+birthYear: number
+rating: number
+photoURL: string
+}
+player2: {
+id: string (uid)
+name: string
+birthYear: number
+rating: number
+photoURL: string
+}
+result: {
+sets: [{ player1: number, player2: number }]
+winner: string (uid)
+setsCount: { player1: number, player2: number }
+validatedBy: {
+[uid]: { validated: boolean, timestamp: Date }
+}
+enteredBy: string (uid)
+enteredAt: Date
+observations: string
+} | null
+ratingChange: {
+player1: { oldRating, change, newRating }
+player2: { oldRating, change, newRating }
+} | null
+verifiedBy: string (uid) | null
+verifiedAt: Date | null
+rejectedBy: string (uid) | null
+rejectedAt: Date | null
+rejectionReason: string | null
+createdAt: Date
+updatedAt: Date
+
+PASO 2: Crear client/src/lib/firestoreMatchStore.ts
+```typescript
+import { 
+  collection, 
+  doc, 
+  getDoc, 
+  getDocs, 
+  setDoc, 
+  updateDoc, 
+  query, 
+  where,
+  onSnapshot,
+  Timestamp
+} from 'firebase/firestore';
+import { db } from './firebase';
+import type { Match } from './matchStore';
+
+const matchesRef = collection(db, 'matches');
+
+export async function getAllMatches(): Promise<Match[]> {
+  const snapshot = await getDocs(matchesRef);
+  return snapshot.docs.map(doc => ({ 
+    id: doc.id, 
+    ...doc.data(),
+    // Convertir Timestamps a Dates
+    createdAt: doc.data().createdAt?.toDate(),
+    updatedAt: doc.data().updatedAt?.toDate(),
+    result: doc.data().result ? {
+      ...doc.data().result,
+      enteredAt: doc.data().result.enteredAt?.toDate()
+    } : null
+  } as Match));
+}
+
+export async function getMatch(matchId: string): Promise<Match | null> {
+  const docRef = doc(db, 'matches', matchId);
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    return { 
+      id: docSnap.id, 
+      ...docSnap.data(),
+      createdAt: docSnap.data().createdAt?.toDate(),
+      updatedAt: docSnap.data().updatedAt?.toDate()
+    } as Match;
+  }
+  return null;
+}
+
+export async function updateMatch(matchId: string, updates: Partial<Match>): Promise<void> {
+  const docRef = doc(db, 'matches', matchId);
+  await updateDoc(docRef, {
+    ...updates,
+    updatedAt: Timestamp.now()
+  });
+}
+
+export async function createMatch(match: Omit<Match, 'id'>): Promise<string> {
+  const docRef = doc(matchesRef);
+  await setDoc(docRef, {
+    ...match,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now()
+  });
+  return docRef.id;
+}
+
+// Suscripción en tiempo real para dashboards
+export function subscribeToMatches(
+  callback: (matches: Match[]) => void,
+  filters?: { 
+    referee?: string;
+    status?: string | string[];
+    playerId?: string;
+  }
+) {
+  let q = query(matchesRef);
+  
+  if (filters?.referee) {
+    q = query(q, where('referee', '==', filters.referee));
+  }
+  
+  if (filters?.status) {
+    if (Array.isArray(filters.status)) {
+      q = query(q, where('status', 'in', filters.status));
+    } else {
+      q = query(q, where('status', '==', filters.status));
+    }
+  }
+  
+  return onSnapshot(q, (snapshot) => {
+    const matches = snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate(),
+      updatedAt: doc.data().updatedAt?.toDate()
+    } as Match));
+    
+    // Filtro adicional por playerId (no se puede hacer con where compuesto)
+    let filtered = matches;
+    if (filters?.playerId) {
+      filtered = matches.filter(m => 
+        m.player1.id === filters.playerId || 
+        m.player2.id === filters.playerId
+      );
+    }
+    
+    callback(filtered);
+  });
+}
+```
+
+PASO 3: Actualizar todos los dashboards para usar Firestore
+
+En estos archivos, reemplazar imports y lógica:
+
+**client/src/pages/arbitro/dashboard.tsx:**
+```typescript
+import { subscribeToMatches } from '@/lib/firestoreMatchStore';
+
+// Dentro del componente:
+useEffect(() => {
+  if (!user) return;
+  
+  const unsubscribe = subscribeToMatches(
+    (data) => setMatches(data),
+    { referee: user.uid }
+  );
+  
+  return () => unsubscribe();
+}, [user]);
+```
+
+**client/src/pages/jugador/dashboard.tsx:**
+```typescript
+useEffect(() => {
+  if (!user) return;
+  
+  const unsubscribe = subscribeToMatches(
+    (data) => setMatches(data),
+    { playerId: user.uid }
+  );
+  
+  return () => unsubscribe();
+}, [user]);
+```
+
+**client/src/pages/admin/verify-results.tsx:**
+```typescript
+useEffect(() => {
+  const unsubscribe = subscribeToMatches(
+    (data) => setMatches(data)
+    // Sin filtros = todos los partidos
+  );
+  
+  return () => unsubscribe();
+}, []);
+```
+
+PASO 4: Actualizar páginas de scoring
+
+**client/src/pages/arbitro/match-scoring.tsx y jugador/match-scoring.tsx:**
+
+Reemplazar:
+```typescript
+import { getMatch, updateMatch } from '@/lib/matchStore';
+```
+
+Con:
+```typescript
+import { getMatch, updateMatch } from '@/lib/firestoreMatchStore';
+
+// Y cambiar a async:
+const [match, setMatch] = useState<Match | null>(null);
+const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+  async function loadMatch() {
+    const data = await getMatch(matchId);
+    setMatch(data);
+    setLoading(false);
+  }
+  loadMatch();
+}, [matchId]);
+```
+
+PASO 5: Script de migración de datos mock a Firestore
+
+Crear: client/src/lib/seedFirestore.ts
+```typescript
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from './firebase';
+import { mockMatches } from '../data/mockMatches';
+
+export async function seedMatches() {
+  console.log('🌱 Seeding Firestore with mock matches...');
+  
+  for (const match of mockMatches) {
+    const { id, ...matchData } = match;
+    await setDoc(doc(db, 'matches', id), {
+      ...matchData,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    console.log(`✅ Match ${id} created`);
+  }
+  
+  console.log('✅ Done!');
+}
+
+// Para ejecutar: En consola del navegador: seedMatches()
+```
+
+PASO 6: Agregar botón temporal en dashboard admin para seed
+
+En /admin/verify-results, agregar temporalmente:
+```tsx
+<Button onClick={async () => {
+  const { seedMatches } = await import('@/lib/seedFirestore');
+  await seedMatches();
+  toast.success('Partidos mock cargados a Firestore');
+}}>
+  🌱 Cargar Datos Mock
+</Button>
+```
+
+PASO 7: Actualizar Firestore Rules
+
+En Firebase Console → Firestore → Rules:
+rules_version = '2';
+service cloud.firestore {
+match /databases/{database}/documents {
+function isAuthenticated() {
+  return request.auth != null;
+}
+
+function getUserRole() {
+  return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+}
+
+function isAdmin() {
+  return getUserRole() in ['owner', 'admin'];
+}
+
+function isArbitro() {
+  return getUserRole() in ['owner', 'admin', 'arbitro'];
+}
+
+function isMatchParticipant(matchData) {
+  return matchData.player1.id == request.auth.uid ||
+         matchData.player2.id == request.auth.uid;
+}
+
+// Matches
+match /matches/{matchId} {
+  allow read: if true; // Público puede ver
+  
+  allow create: if isAdmin(); // Solo admin crea partidos
+  
+  allow update: if isAdmin() || 
+                  isArbitro() || 
+                  (isAuthenticated() && isMatchParticipant(resource.data));
+  
+  allow delete: if isAdmin();
+}
+
+// Users (ya existente)
+match /users/{userId} {
+  allow read: if true;
+  allow create: if isAuthenticated();
+  allow update: if isAdmin() || request.auth.uid == userId;
+  allow delete: if isAdmin();
+}
+
+// Counters
+match /counters/{counterId} {
+  allow read: if true;
+  allow write: if isAuthenticated();
+}
+}
+}
+
+Implementa todo esto AHORA. Después de esto, el sistema estará 100% en Firebase.

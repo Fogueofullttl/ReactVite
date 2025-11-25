@@ -7,28 +7,32 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Clock, CheckCircle2, Trophy, AlertCircle } from "lucide-react";
-import { matchStore } from "@/lib/matchStore";
+import { subscribeToMatches } from "@/lib/firestoreMatchStore";
+import type { Match } from "@/data/mockMatches";
 
 export default function JugadorDashboard() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
-  const [matches, setMatches] = useState(matchStore.getMatches());
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setMatches(matchStore.getMatches());
+    if (!user?.id) return;
     
-    const handleMatchesUpdate = () => {
-      setMatches(matchStore.getMatches());
-    };
+    // Suscripción en tiempo real a partidos del jugador
+    const unsubscribe = subscribeToMatches(
+      (data) => {
+        setMatches(data);
+        setLoading(false);
+      },
+      { playerId: user.id }
+    );
     
-    window.addEventListener("matches:updated", handleMatchesUpdate);
-    return () => window.removeEventListener("matches:updated", handleMatchesUpdate);
-  }, []);
+    return () => unsubscribe();
+  }, [user?.id]);
 
   // Filter matches where user is a player
-  const userMatches = matches.filter(m => 
-    m.player1.id === user?.id || m.player2.id === user?.id
-  );
+  const userMatches = matches;
 
   const pendingMatches = userMatches.filter(m => m.status === 'pending_result');
   const awaitingVerification = userMatches.filter(m => m.status === 'pending_verification');

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,8 @@ import { BirthYearValidation } from "@/components/birth-year-validation";
 import { CheckCircle2, Trophy, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { matchStore } from "@/lib/matchStore";
+import { getMatch, saveMatchResult } from "@/lib/firestoreMatchStore";
+import type { Match } from "@/data/mockMatches";
 
 interface SetScore {
   player1: string;
@@ -37,7 +38,17 @@ export default function MatchScoring() {
   const [showValidation, setShowValidation] = useState(false);
   const [validationComplete, setValidationComplete] = useState(false);
   const [isPending, setIsPending] = useState(false);
-  const [match, setMatch] = useState(matchStore.getMatch(matchId as string));
+  const [match, setMatch] = useState<Match | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadMatch() {
+      const data = await getMatch(matchId as string);
+      setMatch(data);
+      setLoading(false);
+    }
+    loadMatch();
+  }, [matchId]);
 
   const getInitials = (name: string) => {
     return name
@@ -128,15 +139,13 @@ export default function MatchScoring() {
       player2: parseInt(set.player2),
     }));
 
-    try {
-      const updatedMatch = matchStore.saveMatchResult(
-        matchId as string,
-        formattedSets,
-        winnerId,
-        user.id,
-        observations || undefined
-      );
-
+    saveMatchResult(
+      matchId as string,
+      formattedSets,
+      winnerId,
+      user.id,
+      observations || undefined
+    ).then((updatedMatch) => {
       if (updatedMatch) {
         setMatch(updatedMatch);
         
@@ -149,7 +158,7 @@ export default function MatchScoring() {
       } else {
         throw new Error("No se pudo guardar el resultado");
       }
-    } catch (error) {
+    }).catch((error) => {
       console.error("Error guardando resultado:", error);
       toast({
         title: "Error",
@@ -157,7 +166,7 @@ export default function MatchScoring() {
         variant: "destructive",
       });
       setIsPending(false);
-    }
+    });
   };
 
   const getValidationPlayers = (): Array<{

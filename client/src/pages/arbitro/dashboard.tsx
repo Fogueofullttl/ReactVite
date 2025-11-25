@@ -4,25 +4,31 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MatchCard from "@/components/MatchCard";
-import { matchStore } from "@/lib/matchStore";
+import { subscribeToMatches } from "@/lib/firestoreMatchStore";
+import type { Match } from "@/data/mockMatches";
 
 export default function ArbitroDashboard() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
-  const [matches, setMatches] = useState(matchStore.getMatches());
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setMatches(matchStore.getMatches());
+    if (!user?.id) return;
     
-    const handleMatchesUpdate = () => {
-      setMatches(matchStore.getMatches());
-    };
+    // Suscripción en tiempo real a partidos del árbitro
+    const unsubscribe = subscribeToMatches(
+      (data) => {
+        setMatches(data);
+        setLoading(false);
+      },
+      { referee: user.id }
+    );
     
-    window.addEventListener("matches:updated", handleMatchesUpdate);
-    return () => window.removeEventListener("matches:updated", handleMatchesUpdate);
-  }, []);
+    return () => unsubscribe();
+  }, [user?.id]);
 
-  const refereeMatches = matches.filter(m => m.referee === user?.id);
+  const refereeMatches = matches;
   const pendingMatches = refereeMatches.filter(m => m.status === 'pending_result');
   const completedMatches = refereeMatches.filter(m => m.status === 'verified');
 
