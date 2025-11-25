@@ -11,6 +11,26 @@ export interface MatchSet {
   player2: number;
 }
 
+export interface RatingChangeData {
+  player1: {
+    id: string;
+    name: string;
+    oldRating: number;
+    change: number;
+    newRating: number;
+    isFavorite: boolean;
+  };
+  player2: {
+    id: string;
+    name: string;
+    oldRating: number;
+    change: number;
+    newRating: number;
+    isFavorite: boolean;
+  };
+  ratingDifference: number;
+}
+
 export interface MatchResult {
   sets: MatchSet[];
   winner: string;
@@ -27,6 +47,7 @@ export interface MatchResult {
   enteredBy: string;
   enteredAt: Date;
   observations?: string;
+  ratingChange?: RatingChangeData;
 }
 
 export type MatchStatus = 
@@ -59,7 +80,9 @@ export interface Match {
 }
 
 export const mockMatches: Match[] = [
-  // Partido pendiente de resultado (asignado a arbitro-001)
+  // Partido pendiente de resultado (diferencia 130 pts - rango 100-149)
+  // Si favorito gana: +3, -3
+  // Si underdog gana: -15, +15
   {
     id: "match-001",
     tournamentId: "torneo-001",
@@ -86,7 +109,9 @@ export const mockMatches: Match[] = [
     }
   },
   
-  // Partido pendiente de resultado (jugador user1 participa)
+  // Partido pendiente de resultado (diferencia 90 pts - rango 50-99)
+  // Si favorito gana: +5, -5
+  // Si underdog gana: -12, +12
   {
     id: "match-002",
     tournamentId: "torneo-001",
