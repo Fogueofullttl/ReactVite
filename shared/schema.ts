@@ -54,6 +54,7 @@ export const tournamentRegistrations = pgTable("tournament_registrations", {
   tournamentId: varchar("tournament_id").notNull().references(() => tournaments.id),
   playerId: varchar("player_id").notNull().references(() => users.id),
   partnerId: varchar("partner_id").references(() => users.id),
+  events: text("events").array().notNull(),
   athMovilReference: varchar("ath_movil_reference", { length: 5 }).notNull(),
   paymentStatus: paymentStatusEnum("payment_status").notNull().default("pending"),
   verifiedBy: varchar("verified_by").references(() => users.id),
