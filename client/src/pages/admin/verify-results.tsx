@@ -14,9 +14,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, XCircle, Clock, Trophy, AlertCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Trophy, AlertCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { matchStore } from "@/lib/matchStore";
+import { calculateRatingChange, formatRatingChange, getRatingChangeColor } from "@/lib/ratingSystem";
 
 export default function AdminVerifyResults() {
   const { user } = useAuth();
@@ -68,13 +69,47 @@ export default function AdminVerifyResults() {
   const handleApprove = (matchId: string) => {
     if (!user) return;
 
+    const match = matchStore.getMatch(matchId);
+    if (!match || !match.result) return;
+
+    // Calculate rating change for toast
+    const ratingChange = calculateRatingChange(
+      match.player1,
+      match.player2,
+      { sets: match.result.sets, winner: match.result.winner }
+    );
+
     try {
       const updatedMatch = matchStore.approveResult(matchId, user.id);
       
       if (updatedMatch) {
         toast({
           title: "✓ Resultado Aprobado",
-          description: "El resultado ha sido verificado y los ratings se actualizarán.",
+          description: (
+            <div className="space-y-2 text-sm">
+              <div>El resultado ha sido verificado y los ratings actualizados.</div>
+              <div className="space-y-1 mt-2">
+                <div className="flex justify-between items-center">
+                  <span>{ratingChange.player1.name}:</span>
+                  <span className={getRatingChangeColor(ratingChange.player1.change)}>
+                    {formatRatingChange(ratingChange.player1.change)} pts 
+                    <span className="text-xs ml-1 text-muted-foreground">
+                      ({ratingChange.player1.oldRating} → {ratingChange.player1.newRating})
+                    </span>
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>{ratingChange.player2.name}:</span>
+                  <span className={getRatingChangeColor(ratingChange.player2.change)}>
+                    {formatRatingChange(ratingChange.player2.change)} pts
+                    <span className="text-xs ml-1 text-muted-foreground">
+                      ({ratingChange.player2.oldRating} → {ratingChange.player2.newRating})
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          ),
         });
       } else {
         throw new Error("No se pudo aprobar el resultado");
@@ -125,6 +160,13 @@ export default function AdminVerifyResults() {
 
   const MatchVerificationCard = ({ match }: { match: typeof matches[0] }) => {
     if (!match.result) return null;
+
+    // Calculate projected rating change
+    const projectedChange = calculateRatingChange(
+      match.player1,
+      match.player2,
+      { sets: match.result.sets, winner: match.result.winner }
+    );
 
     return (
       <Card className="mb-4" data-testid={`match-card-${match.id}`}>
@@ -240,6 +282,86 @@ export default function AdminVerifyResults() {
               </span>
             </p>
           </div>
+
+          {/* Rating Change Preview (only for pending verification) */}
+          {match.status === 'pending_verification' && (
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 p-4 rounded-lg mb-4 border border-blue-200 dark:border-blue-800">
+              <div className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                📊 Cambio de Rating Proyectado:
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">{match.player1.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-bold ${getRatingChangeColor(projectedChange.player1.change)}`}>
+                      {formatRatingChange(projectedChange.player1.change)} pts
+                    </span>
+                    <span className="text-xs text-muted-foreground font-mono">
+                      ({match.player1.rating} → {projectedChange.player1.newRating})
+                    </span>
+                    {projectedChange.player1.isFavorite && (
+                      <Badge variant="outline" className="text-xs">Favorito</Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">{match.player2.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-bold ${getRatingChangeColor(projectedChange.player2.change)}`}>
+                      {formatRatingChange(projectedChange.player2.change)} pts
+                    </span>
+                    <span className="text-xs text-muted-foreground font-mono">
+                      ({match.player2.rating} → {projectedChange.player2.newRating})
+                    </span>
+                    {projectedChange.player2.isFavorite && (
+                      <Badge variant="outline" className="text-xs">Favorito</Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground mt-3 pt-2 border-t border-blue-200 dark:border-blue-800">
+                Diferencia de rating: {projectedChange.ratingDifference} pts
+                {projectedChange.player1.isFavorite 
+                  ? ` (${match.player1.name} es favorito)` 
+                  : ` (${match.player2.name} es favorito)`}
+              </div>
+            </div>
+          )}
+
+          {/* Rating Change Applied (for verified matches) */}
+          {match.status === 'verified' && match.result.ratingChange && (
+            <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950 dark:to-blue-950 p-4 rounded-lg mb-4 border border-green-200 dark:border-green-800">
+              <div className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                Cambio de Rating Aplicado:
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">{match.player1.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-bold ${getRatingChangeColor(match.result.ratingChange.player1.change)}`}>
+                      {formatRatingChange(match.result.ratingChange.player1.change)} pts
+                    </span>
+                    <span className="text-xs text-muted-foreground font-mono">
+                      ({match.result.ratingChange.player1.oldRating} → {match.result.ratingChange.player1.newRating})
+                    </span>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">{match.player2.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-bold ${getRatingChangeColor(match.result.ratingChange.player2.change)}`}>
+                      {formatRatingChange(match.result.ratingChange.player2.change)} pts
+                    </span>
+                    <span className="text-xs text-muted-foreground font-mono">
+                      ({match.result.ratingChange.player2.oldRating} → {match.result.ratingChange.player2.newRating})
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Verification Info */}
           {match.status === 'verified' && match.verifiedAt && (
