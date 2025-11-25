@@ -1,4 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { auth } from '@/lib/firebase';
+import { 
+  signInWithEmailAndPassword, 
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { getUserProfile, UserProfile } from '@/lib/firebaseHelpers';
 
 export interface MockUser {
   id: string;
@@ -8,77 +16,112 @@ export interface MockUser {
   memberNumber?: string;
   birthYear?: number;
   rating?: number;
+  photoURL?: string;
 }
 
 interface AuthContextType {
   user: MockUser | null;
-  login: (email: string, password: string, role: string) => boolean;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const mockUsers: Record<string, MockUser> = {
-  "admin@fptm.pr": {
-    id: "admin-001",
-    email: "admin@fptm.pr",
-    name: "Admin FPTM",
-    role: "admin",
-    memberNumber: "PRTTM-000001"
-  },
-  "arbitro@fptm.pr": {
-    id: "arbitro-001",
-    email: "arbitro@fptm.pr",
-    name: "Carlos Arbitro",
-    role: "arbitro",
-    memberNumber: "PRTTM-000010"
-  },
-  "jugador@fptm.pr": {
-    id: "user1",
-    email: "jugador@fptm.pr",
-    name: "Carlos Rivera",
-    role: "jugador",
-    memberNumber: "PRTTM-001234",
-    birthYear: 1995,
-    rating: 1850
-  },
-  "owner@fptm.pr": {
-    id: "owner-001",
-    email: "owner@fptm.pr",
-    name: "Owner FPTM",
-    role: "owner",
-    memberNumber: "PRTTM-000000"
-  }
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MockUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Listener para cambios en autenticación
   useEffect(() => {
-    const savedUser = localStorage.getItem('fptm_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        // Usuario autenticado, obtener perfil desde Firestore
+        const userProfile = await getUserProfile(firebaseUser.uid);
+        
+        if (userProfile) {
+          const mockUser: MockUser = {
+            id: userProfile.uid,
+            email: userProfile.email,
+            name: userProfile.displayName,
+            role: userProfile.role,
+            memberNumber: userProfile.memberNumber,
+            birthYear: userProfile.birthYear,
+            rating: userProfile.rating,
+            photoURL: userProfile.photoURL,
+          };
+          
+          setUser(mockUser);
+          
+          // Guardar en localStorage para compatibilidad con código existente
+          localStorage.setItem('fptm_user', JSON.stringify(mockUser));
+          localStorage.setItem('fptm_role', mockUser.role);
+        } else {
+          // Perfil no encontrado en Firestore
+          console.error("Perfil de usuario no encontrado en Firestore");
+          setUser(null);
+          localStorage.removeItem('fptm_user');
+          localStorage.removeItem('fptm_role');
+        }
+      } else {
+        // Usuario no autenticado
+        setUser(null);
+        localStorage.removeItem('fptm_user');
+        localStorage.removeItem('fptm_role');
+      }
+      
+      setIsLoading(false);
+    });
+
+    // Cleanup subscription
+    return () => unsubscribe();
   }, []);
 
-  const login = (email: string, password: string, role: string): boolean => {
-    const foundUser = mockUsers[email];
-    
-    if (foundUser && foundUser.role === role) {
-      setUser(foundUser);
-      localStorage.setItem('fptm_user', JSON.stringify(foundUser));
-      localStorage.setItem('fptm_role', foundUser.role);
-      return true;
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Obtener perfil desde Firestore
+      const userProfile = await getUserProfile(userCredential.user.uid);
+      
+      if (userProfile) {
+        const mockUser: MockUser = {
+          id: userProfile.uid,
+          email: userProfile.email,
+          name: userProfile.displayName,
+          role: userProfile.role,
+          memberNumber: userProfile.memberNumber,
+          birthYear: userProfile.birthYear,
+          rating: userProfile.rating,
+          photoURL: userProfile.photoURL,
+        };
+        
+        setUser(mockUser);
+        localStorage.setItem('fptm_user', JSON.stringify(mockUser));
+        localStorage.setItem('fptm_role', mockUser.role);
+        
+        return true;
+      } else {
+        console.error("Perfil de usuario no encontrado");
+        return false;
+      }
+    } catch (error: any) {
+      console.error("Error en login:", error);
+      return false;
     }
-    
-    return false;
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('fptm_user');
-    localStorage.removeItem('fptm_role');
+  const logout = async (): Promise<void> => {
+    try {
+      await firebaseSignOut(auth);
+      setUser(null);
+      localStorage.removeItem('fptm_user');
+      localStorage.removeItem('fptm_role');
+    } catch (error) {
+      console.error("Error en logout:", error);
+      throw error;
+    }
   };
 
   return (
@@ -86,7 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user, 
       login, 
       logout, 
-      isAuthenticated: !!user 
+      isAuthenticated: !!user,
+      isLoading
     }}>
       {children}
     </AuthContext.Provider>
