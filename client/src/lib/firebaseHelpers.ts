@@ -1,23 +1,37 @@
 import { db } from "./firebase";
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs,
+  runTransaction
+} from "firebase/firestore";
 
 /**
  * Genera un número de miembro único en formato PRTTM-XXXXXX
- * Usa un contador en Firestore para garantizar unicidad
+ * Usa un contador en Firestore con transacciones para garantizar unicidad bajo concurrencia
  */
 export async function generateMemberNumber(): Promise<string> {
   const counterRef = doc(db, 'counters', 'memberNumbers');
   
   try {
-    const counterDoc = await getDoc(counterRef);
-    
-    let nextNumber = 1;
-    if (counterDoc.exists()) {
-      nextNumber = counterDoc.data().current + 1;
-    }
-    
-    // Actualizar el contador
-    await setDoc(counterRef, { current: nextNumber });
+    // Usar transacción para garantizar atomicidad
+    const nextNumber = await runTransaction(db, async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      
+      let current = 0;
+      if (counterDoc.exists()) {
+        current = counterDoc.data().current || 0;
+      }
+      
+      const next = current + 1;
+      transaction.set(counterRef, { current: next });
+      
+      return next;
+    });
     
     // Formatear con 6 dígitos
     return `PRTTM-${nextNumber.toString().padStart(6, '0')}`;
@@ -62,7 +76,8 @@ export interface UserProfile {
 }
 
 /**
- * Crea un perfil de usuario en Firestore
+ * Crea un perfil de usuario en Firestore (solo si no existe)
+ * Retorna el perfil existente si el usuario ya estaba registrado
  */
 export async function createUserProfile(
   uid: string,
@@ -76,6 +91,21 @@ export async function createUserProfile(
   }
 ): Promise<UserProfile> {
   try {
+    const userRef = doc(db, 'users', uid);
+    
+    // Verificar si el perfil ya existe
+    const existingDoc = await getDoc(userRef);
+    if (existingDoc.exists()) {
+      // Usuario ya existe, retornar perfil existente
+      const existingData = existingDoc.data();
+      return {
+        ...existingData,
+        createdAt: new Date(existingData.createdAt),
+        updatedAt: new Date(existingData.updatedAt)
+      } as UserProfile;
+    }
+    
+    // Usuario nuevo, generar número de miembro y crear perfil
     const memberNumber = await generateMemberNumber();
     const now = new Date();
     
@@ -95,7 +125,6 @@ export async function createUserProfile(
       updatedAt: now
     };
     
-    const userRef = doc(db, 'users', uid);
     await setDoc(userRef, {
       ...userProfile,
       createdAt: now.toISOString(),

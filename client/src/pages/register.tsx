@@ -136,11 +136,12 @@ export default function Register() {
       const firstName = nameParts[0];
       const lastName = nameParts.slice(1).join(" ") || nameParts[0];
       
-      // Solicitar año de nacimiento (por ahora usar valor predeterminado)
+      // TODO: Implementar flujo para capturar año de nacimiento real después del registro
+      // Por ahora usar valor predeterminado para no bloquear el registro con Google
       const currentYear = new Date().getFullYear();
       const defaultBirthYear = currentYear - 25; // Edad predeterminada 25 años
       
-      // Crear perfil en Firestore
+      // Crear o obtener perfil en Firestore
       const userProfile = await createUserProfile(user.uid, {
         email: user.email!,
         firstName,
@@ -150,8 +151,10 @@ export default function Register() {
       });
 
       toast({
-        title: "¡Registro Exitoso con Google!",
-        description: `Tu número de miembro es: ${userProfile.memberNumber}`,
+        title: "¡Bienvenido!",
+        description: userProfile.memberNumber.startsWith('PRTTM') 
+          ? `Tu número de miembro es: ${userProfile.memberNumber}`
+          : "Has iniciado sesión exitosamente",
       });
 
       // Redirigir al dashboard
@@ -168,6 +171,8 @@ export default function Register() {
         errorMessage = "Registro cancelado";
       } else if (error.code === "auth/account-exists-with-different-credential") {
         errorMessage = "Ya existe una cuenta con este correo electrónico";
+      } else if (error.code === "auth/cancelled-popup-request") {
+        errorMessage = "Registro cancelado";
       }
       
       toast({

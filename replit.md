@@ -23,7 +23,14 @@ The system employs a client-server architecture.
     -   **Color Scheme:** FPTM blue as primary, with green/yellow accents, white/light gray background. Full dark mode support planned.
     -   **Dashboard Styling:** Arbitro dashboard features gradient blue stat cards, responsive grid cards with hover effects, and FPTM-specific colored badges. Tournament listings are inspired by "Stadium Compete" design.
 -   **Technical Implementations:**
-    -   **Authentication System (Mock):** React Context-based authentication using localStorage. Supports 4 roles (owner, admin, arbitro, jugador, publico) with dynamic navigation and role-based dashboards.
+    -   **Authentication System (Firebase):** Production-ready authentication using Firebase Auth with email/password and Google Sign-In. Key features:
+        -   **Firebase Auth Integration:** Uses `onAuthStateChanged` for session persistence and automatic state management
+        -   **Dual Registration Methods:** Email/password registration with full profile capture, and Google Sign-In for quick access
+        -   **Automatic Member Number Generation:** Atomic counter using Firestore transactions (format: PRTTM-000001, PRTTM-000002, etc.)
+        -   **User Profiles in Firestore:** Complete user data stored in `users` collection including uid, email, firstName, lastName, displayName, memberNumber, birthYear, club, role, rating, photoURL
+        -   **Role-Based Access:** Supports 5 roles (owner, admin, arbitro, jugador, publico) with dynamic navigation and dashboards
+        -   **Backward Compatibility:** Maintains localStorage integration for compatibility with existing matchStore system
+        -   **Known Limitation:** Google Sign-In uses default birthYear (current year - 25) - future enhancement needed to capture actual birthYear post-registration
     -   **Mock Match Data:** Comprehensive match data structure with example matches in various states (scheduled, pending_result, pending_verification, verified, disputed, rejected).
     -   **Match Store (Global State System):** In-memory state management system (`client/src/lib/matchStore.ts`) with localStorage persistence and global reactivity via events for real-time updates across dashboards. Handles saving results by both referees and players, approval/rejection by admins, and automatic rating change calculations and application.
     -   **Dynamic Navigation:** Sidebar uses `useAuth` hook for role-specific menus and real-time badge counters for pending matches.
@@ -41,14 +48,17 @@ The system employs a client-server architecture.
         -   **Detailed Toast Notifications:** Approval toasts display complete rating changes with old → new ratings for both players.
     -   **ATH Móvil Payment System:** Full workflow for manual admin verification of 5-character alphanumeric reference codes.
     -   **Multi-Event Tournament Registration:** Players can register for multiple events within a single tournament using checkbox selection, with validation and display in the admin interface.
-    -   **Member Number Generation:** Automatic, auto-incrementing member numbers in the format `PRTTM-000123`.
+    -   **Member Number Generation:** Automatic, auto-incrementing member numbers in the format `PRTTM-000001` using Firestore transaction-based counter for uniqueness under concurrency.
 -   **System Design Choices:**
     -   **Modular Design:** Clear separation between `shared`, `server`, and `client` directories.
-    -   **Gradual Migration Strategy:** Intentional use of `MemStorage` with an `IStorage` interface to facilitate future migration to a persistent database like Firestore.
-    -   **Role-Based Access (Mock):** Basic role-based authentication implemented with React Context and localStorage for dynamic navigation and dashboards, with future migration to Firebase Authentication planned.
+    -   **Hybrid Storage Strategy:** Firebase Auth + Firestore for user authentication and profiles, with in-memory `MemStorage` for match/tournament data (future migration to Firestore planned).
+    -   **Transaction Safety:** Critical operations (member number generation) use Firestore transactions to guarantee data integrity under concurrent access.
 
 ## External Dependencies
--   **Firebase:** Configured for future integration, but not yet actively used for data storage or authentication.
+-   **Firebase:** Actively used for authentication (Firebase Auth) and user profile storage (Firestore). Configured services:
+    -   **Firebase Auth:** Email/password authentication and Google OAuth provider
+    -   **Firestore:** `users` collection for user profiles, `counters` collection for member number generation
+    -   **Firebase Storage:** Configured but not yet actively used for profile photos
 -   **ATH Móvil:** Integrated for payment processing.
 -   **Shadcn UI:** Frontend component library.
 -   **Lucide React:** Icon library.
