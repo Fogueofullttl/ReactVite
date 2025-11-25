@@ -325,12 +325,14 @@ export async function rejectResult(
       return null;
     }
     
+    // Preservar resultado rechazado para auditoría
     return await updateMatch(matchId, {
       status: "rejected" as const,
       rejectedBy: adminId,
       rejectedAt: new Date(),
       rejectionReason: reason,
       waitingAdminApproval: false,
+      rejectedResult: match.result, // Guardar para auditoría
       result: undefined,
       verifiedBy: undefined,
       verifiedAt: undefined

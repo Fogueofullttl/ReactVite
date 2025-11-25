@@ -18,6 +18,7 @@ import { CheckCircle2, XCircle, Clock, Trophy, AlertCircle, TrendingUp, Trending
 import { useToast } from "@/hooks/use-toast";
 import { subscribeToMatches, approveResult, rejectResult } from "@/lib/firestoreMatchStore";
 import { formatRatingChange, getRatingChangeColor } from "@/lib/ratingSystem";
+import { notifyResultVerified, notifyResultRejected } from "@/lib/notifications";
 import type { Match } from "@/data/mockMatches";
 
 export default function AdminVerifyResults() {
@@ -104,6 +105,16 @@ export default function AdminVerifyResults() {
       
       if (updatedMatch && updatedMatch.result?.ratingChange) {
         const rc = updatedMatch.result.ratingChange;
+        
+        // Notificar a ambos jugadores
+        await notifyResultVerified(
+          match.player1.id,
+          match.player2.id,
+          match.player1.name,
+          match.player2.name,
+          rc
+        );
+        
         toast({
           title: "✓ Resultado Aprobado",
           description: (
@@ -128,6 +139,9 @@ export default function AdminVerifyResults() {
                     </span>
                   </span>
                 </div>
+              </div>
+              <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                Los jugadores han sido notificados
               </div>
             </div>
           ),
@@ -155,13 +169,24 @@ export default function AdminVerifyResults() {
       return;
     }
 
+    const match = matches.find(m => m.id === rejectingMatchId);
+    if (!match) return;
+
     try {
       const updatedMatch = await rejectResult(rejectingMatchId, user.id, rejectReason);
       
       if (updatedMatch) {
+        // Notificar a ambos jugadores sobre el rechazo
+        await notifyResultRejected(
+          match.player1.id,
+          match.player2.id,
+          rejectingMatchId,
+          rejectReason
+        );
+        
         toast({
-          title: "Resultado Rechazado",
-          description: "Los jugadores han sido notificados y pueden volver a ingresar el resultado.",
+          title: "⚠️ Resultado Rechazado",
+          description: "Los jugadores han sido notificados y deben dirigirse a Mesa Técnica para ingresar el resultado correcto.",
         });
 
         setRejectingMatchId(null);

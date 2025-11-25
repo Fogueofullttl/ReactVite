@@ -1,0 +1,432 @@
+IMPLEMENTAR SISTEMA DE NOTIFICACIONES
+
+Cuando admin rechaza un resultado, debe notificar a los jugadores para que vayan a mesa técnica.
+
+PASO 1: Crear colección 'notifications' en Firestore
+
+Estructura:
+notifications/{notificationId}
+
+userId: string (uid del jugador)
+type: "result_rejected" | "result_verified" | "match_assigned" | "membership_expiry"
+title: string
+message: string
+matchId: string (referencia al partido)
+read: boolean (default: false)
+priority: "high" | "normal" | "low"
+data: {
+matchId: string
+rejectionReason: string
+requiresAction: boolean (true para rechazos)
+}
+createdAt: Date
+
+
+PASO 2: Crear client/src/lib/notifications.ts
+```typescript
+import { collection, addDoc, query, where, onSnapshot, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import { db } from './firebase';
+
+export interface Notification {
+  id?: string;
+  userId: string;
+  type: 'result_rejected' | 'result_verified' | 'match_assigned' | 'membership_expiry';
+  title: string;
+  message: string;
+  matchId?: string;
+  read: boolean;
+  priority: 'high' | 'normal' | 'low';
+  data?: {
+    matchId?: string;
+    rejectionReason?: string;
+    requiresAction?: boolean;
+  };
+  createdAt: Date;
+}
+
+// Crear notificación
+export async function createNotification(notification: Omit<Notification, 'id' | 'createdAt'>): Promise<string> {
+  const notificationsRef = collection(db, 'notifications');
+  const docRef = await addDoc(notificationsRef, {
+    ...notification,
+    createdAt: Timestamp.now()
+  });
+  return docRef.id;
+}
+
+// Notificar a ambos jugadores cuando resultado es rechazado
+export async function notifyResultRejected(
+  player1Id: string,
+  player2Id: string,
+  matchId: string,
+  rejectionReason: string
+): Promise<void> {
+  const message = `Tu resultado fue rechazado por el administrador. 
+  
+Razón: ${rejectionReason}
+
+⚠️ ACCIÓN REQUERIDA: Por favor, dirígete a Mesa Técnica para ingresar el resultado correcto.`;
+
+  // Notificar jugador 1
+  await createNotification({
+    userId: player1Id,
+    type: 'result_rejected',
+    title: '⚠️ Resultado Rechazado - Ir a Mesa Técnica',
+    message,
+    matchId,
+    read: false,
+    priority: 'high',
+    data: {
+      matchId,
+      rejectionReason,
+      requiresAction: true
+    }
+  });
+
+  // Notificar jugador 2
+  await createNotification({
+    userId: player2Id,
+    type: 'result_rejected',
+    title: '⚠️ Resultado Rechazado - Ir a Mesa Técnica',
+    message,
+    matchId,
+    read: false,
+    priority: 'high',
+    data: {
+      matchId,
+      rejectionReason,
+      requiresAction: true
+    }
+  });
+}
+
+// Notificar cuando resultado es verificado
+export async function notifyResultVerified(
+  player1Id: string,
+  player2Id: string,
+  player1Name: string,
+  player2Name: string,
+  ratingChanges: any
+): Promise<void> {
+  // Notificar jugador 1
+  await createNotification({
+    userId: player1Id,
+    type: 'result_verified',
+    title: '✓ Resultado Verificado',
+    message: `Tu resultado contra ${player2Name} fue verificado.
+    
+Rating: ${ratingChanges.player1.change > 0 ? '+' : ''}${ratingChanges.player1.change} pts (${ratingChanges.player1.oldRating} → ${ratingChanges.player1.newRating})`,
+    read: false,
+    priority: 'normal',
+    data: {
+      requiresAction: false
+    }
+  });
+
+  // Notificar jugador 2
+  await createNotification({
+    userId: player2Id,
+    type: 'result_verified',
+    title: '✓ Resultado Verificado',
+    message: `Tu resultado contra ${player1Name} fue verificado.
+    
+Rating: ${ratingChanges.player2.change > 0 ? '+' : ''}${ratingChanges.player2.change} pts (${ratingChanges.player2.oldRating} → ${ratingChanges.player2.newRating})`,
+    read: false,
+    priority: 'normal',
+    data: {
+      requiresAction: false
+    }
+  });
+}
+
+// Obtener notificaciones de un usuario
+export function subscribeToNotifications(
+  userId: string,
+  callback: (notifications: Notification[]) => void
+) {
+  const q = query(
+    collection(db, 'notifications'),
+    where('userId', '==', userId)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const notifications = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate()
+    } as Notification));
+
+    // Ordenar: no leídas primero, luego por fecha
+    notifications.sort((a, b) => {
+      if (a.read !== b.read) return a.read ? 1 : -1;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
+
+    callback(notifications);
+  });
+}
+
+// Marcar como leída
+export async function markAsRead(notificationId: string): Promise<void> {
+  await updateDoc(doc(db, 'notifications', notificationId), {
+    read: true
+  });
+}
+
+// Marcar todas como leídas
+export async function markAllAsRead(userId: string): Promise<void> {
+  const q = query(
+    collection(db, 'notifications'),
+    where('userId', '==', userId),
+    where('read', '==', false)
+  );
+
+  const snapshot = await getDocs(q);
+  const updates = snapshot.docs.map(doc => 
+    updateDoc(doc.ref, { read: true })
+  );
+
+  await Promise.all(updates);
+}
+```
+
+PASO 3: Actualizar handleReject en admin/verify-results.tsx
+```typescript
+import { notifyResultRejected } from '@/lib/notifications';
+
+async function handleReject(matchId: string, reason: string) {
+  try {
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+
+    // Preservar resultado rechazado
+    await updateMatch(matchId, {
+      status: 'rejected',
+      rejectedBy: user!.uid,
+      rejectedAt: new Date(),
+      rejectionReason: reason,
+      rejectedResult: match.result, // Guardar para auditoría
+      result: null // Limpiar resultado actual
+    });
+
+    // NOTIFICAR A AMBOS JUGADORES
+    await notifyResultRejected(
+      match.player1.id,
+      match.player2.id,
+      matchId,
+      reason
+    );
+
+    toast.success('Resultado rechazado y jugadores notificados');
+    setRejectingMatchId(null);
+    setRejectReason('');
+
+  } catch (error) {
+    toast.error('Error al rechazar resultado');
+  }
+}
+```
+
+PASO 4: Actualizar handleApprove para notificar también
+```typescript
+import { notifyResultVerified } from '@/lib/notifications';
+
+async function handleApprove(matchId: string) {
+  try {
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+
+    const ratingChange = calculateRatingChange(
+      match.player1,
+      match.player2,
+      match.result!
+    );
+
+    await updateMatch(matchId, {
+      status: 'verified',
+      verifiedBy: user!.uid,
+      verifiedAt: new Date(),
+      ratingChange
+    });
+
+    // Actualizar ratings
+    await updatePlayerRating(match.player1.id, ratingChange.player1.newRating);
+    await updatePlayerRating(match.player2.id, ratingChange.player2.newRating);
+
+    // NOTIFICAR A AMBOS JUGADORES
+    await notifyResultVerified(
+      match.player1.id,
+      match.player2.id,
+      match.player1.name,
+      match.player2.name,
+      ratingChange
+    );
+
+    toast.success('Resultado aprobado y jugadores notificados');
+
+  } catch (error) {
+    toast.error('Error al aprobar resultado');
+  }
+}
+```
+
+PASO 5: Crear componente de NotificationBell
+
+Crear: client/src/components/NotificationBell.tsx
+```tsx
+import { useState, useEffect } from 'react';
+import { Bell } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/auth-context';
+import { subscribeToNotifications, markAsRead, markAllAsRead, type Notification } from '@/lib/notifications';
+import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
+
+export function NotificationBell() {
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = subscribeToNotifications(user.uid, (data) => {
+      setNotifications(data);
+      setUnreadCount(data.filter(n => !n.read).length);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    await markAsRead(notificationId);
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!user) return;
+    await markAllAsRead(user.uid);
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <Badge 
+              variant="destructive" 
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+            >
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </Badge>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+        <div className="flex items-center justify-between p-2 border-b">
+          <h3 className="font-semibold">Notificaciones</h3>
+          {unreadCount > 0 && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={handleMarkAllAsRead}
+            >
+              Marcar todas como leídas
+            </Button>
+          )}
+        </div>
+
+        {notifications.length === 0 ? (
+          <div className="p-4 text-center text-gray-500">
+            No hay notificaciones
+          </div>
+        ) : (
+          notifications.slice(0, 10).map((notification) => (
+            <DropdownMenuItem
+              key={notification.id}
+              className={`p-4 cursor-pointer ${
+                !notification.read ? 'bg-blue-50' : ''
+              } ${
+                notification.priority === 'high' ? 'border-l-4 border-l-red-500' : ''
+              }`}
+              onClick={() => handleMarkAsRead(notification.id!)}
+            >
+              <div className="flex-1">
+                <div className="flex items-start justify-between mb-1">
+                  <div className="font-semibold text-sm">
+                    {notification.title}
+                  </div>
+                  {!notification.read && (
+                    <div className="w-2 h-2 bg-blue-600 rounded-full ml-2 mt-1"></div>
+                  )}
+                </div>
+                <div className="text-sm text-gray-600 whitespace-pre-wrap">
+                  {notification.message}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {formatDistanceToNow(notification.createdAt, { 
+                    addSuffix: true, 
+                    locale: es 
+                  })}
+                </div>
+                {notification.data?.requiresAction && (
+                  <Badge variant="destructive" className="mt-2">
+                    ⚠️ Acción Requerida
+                  </Badge>
+                )}
+              </div>
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+```
+
+PASO 6: Agregar NotificationBell a la navegación
+
+En client/src/components/sidebar.tsx o layout, agregar:
+```tsx
+import { NotificationBell } from '@/components/NotificationBell';
+
+// Dentro del nav, junto al avatar:
+<div className="flex items-center gap-3">
+  <NotificationBell />
+  <Avatar>...</Avatar>
+</div>
+```
+
+PASO 7: Instalar date-fns para formateo de fechas
+
+En terminal:
+```bash
+npm install date-fns
+```
+
+PASO 8: Actualizar Firestore Rules
+
+Agregar en Firebase Console → Firestore → Rules:
+// Notifications
+match /notifications/{notificationId} {
+allow read: if request.auth.uid == resource.data.userId;
+allow create: if isAdmin(); // Solo admins crean notificaciones
+allow update: if request.auth.uid == resource.data.userId; // Usuario puede marcar como leída
+allow delete: if isAdmin();
+}
+
+PASO 9: Página de Notificaciones (opcional pero recomendado)
+
+Crear: client/src/pages/notifications.tsx
+
+Lista completa de notificaciones con filtros y búsqueda.
+
+Implementa TODO esto AHORA. Después de esto, los jugadores recibirán notificaciones en tiempo real cuando sus resultados sean rechazados.
