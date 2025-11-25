@@ -1,0 +1,131 @@
+Perfecto! La página se ve excelente. Ahora necesito probar las funcionalidades:
+
+1. CREAR PÁGINA DE LOGIN/REGISTRO:
+   - Ruta: /login y /register
+   - Por ahora, crear login SIMULADO (sin Firebase todavía)
+   - Al hacer login, permitir seleccionar rol:
+     * Owner
+     * Admin
+     * Árbitro
+     * Jugador
+     * Público
+   - Guardar rol en localStorage
+   - Actualizar la UI según el rol seleccionado
+
+2. DASHBOARD DINÁMICO POR ROL:
+   
+   JUGADOR ve:
+   - Mis torneos inscritos
+   - Próximos partidos
+   - Mi ranking
+   - Botón "Renovar Membresía"
+   
+   ÁRBITRO ve:
+   - Partidos asignados pendientes
+   - Botón para cada partido: "Ingresar Resultado"
+   - Lista de partidos completados
+   
+   ADMIN ve:
+   - Todos los torneos
+   - Botones: Crear Torneo, Ver Inscripciones, Verificar Pagos
+   - Estadísticas generales
+   
+   OWNER ve:
+   - Todo lo del admin +
+   - Configuración del sistema
+   - Logs de actividad
+
+3. CREAR 3 PARTIDOS DE PRUEBA:
+
+En algún archivo de datos mock (o Firestore si ya está conectado):
+```javascript
+const mockMatches = [
+  {
+    id: "match-001",
+    tournamentId: "torneo-001",
+    tournamentName: "Campeonato Nacional 2025",
+    stage: "groups",
+    mesa: 1,
+    status: "pending",
+    referee: "arbitro-001",
+    player1: {
+      id: "user1",
+      name: "Carlos Rivera",
+      birthYear: 1995,
+      rating: 1850
+    },
+    player2: {
+      id: "user2",
+      name: "María González",
+      birthYear: 1998,
+      rating: 1720
+    }
+  },
+  {
+    id: "match-002",
+    tournamentId: "torneo-001",
+    tournamentName: "Campeonato Nacional 2025",
+    stage: "groups",
+    mesa: 2,
+    status: "pending",
+    referee: "arbitro-001",
+    player1: {
+      id: "user3",
+      name: "Luis Pérez",
+      birthYear: 1992,
+      rating: 1680
+    },
+    player2: {
+      id: "user4",
+      name: "Ana Martínez",
+      birthYear: 2000,
+      rating: 1590
+    }
+  },
+  {
+    id: "match-003",
+    tournamentId: "torneo-001",
+    tournamentName: "Campeonato Nacional 2025",
+    stage: "semifinals",
+    mesa: 3,
+    status: "completed",
+    referee: "arbitro-001",
+    player1: {
+      id: "user5",
+      name: "Jorge Sánchez",
+      birthYear: 1988,
+      rating: 1920
+    },
+    player2: {
+      id: "user1",
+      name: "Carlos Rivera",
+      birthYear: 1995,
+      rating: 1850
+    },
+    result: {
+      sets: [
+        { player1: 11, player2: 7 },
+        { player1: 9, player2: 11 },
+        { player1: 11, player2: 8 },
+        { player1: 11, player2: 9 }
+      ],
+      winner: "user5"
+    }
+  }
+];
+```
+
+4. CREAR RUTA: /arbitro/dashboard
+   - Mostrar lista de partidos donde referee === logged user
+   - Card por cada partido con:
+     * Mesa #
+     * Jugadores con fotos
+     * Estado
+     * Botón "Ingresar Resultado" si status === "pending"
+     * Botón "Ver Detalles" si status === "completed"
+
+5. AL HACER CLICK EN "Ingresar Resultado":
+   - Ir a /arbitro/match/:matchId
+   - Mostrar el formulario que pedimos antes
+
+Implementa esto ahora. Prioridad al sistema de roles y dashboard de árbitro.

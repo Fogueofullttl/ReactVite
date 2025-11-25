@@ -245,7 +245,7 @@ export default function TournamentRegister() {
               <FormField
                 control={form.control}
                 name="events"
-                render={() => (
+                render={({ field }) => (
                   <FormItem>
                     <div className="mb-4">
                       <FormLabel>Eventos</FormLabel>
@@ -254,38 +254,25 @@ export default function TournamentRegister() {
                       </FormDescription>
                     </div>
                     {tournament.events?.map((event) => (
-                      <FormField
+                      <div
                         key={event}
-                        control={form.control}
-                        name="events"
-                        render={({ field }) => {
-                          return (
-                            <FormItem
-                              key={event}
-                              className="flex flex-row items-start space-x-3 space-y-0"
-                            >
-                              <FormControl>
-                                <Checkbox
-                                  data-testid={`checkbox-event-${event}`}
-                                  checked={field.value?.includes(event)}
-                                  onCheckedChange={(checked) => {
-                                    return checked
-                                      ? field.onChange([...field.value, event])
-                                      : field.onChange(
-                                          field.value?.filter(
-                                            (value) => value !== event
-                                          )
-                                        );
-                                  }}
-                                />
-                              </FormControl>
-                              <FormLabel className="font-normal cursor-pointer">
-                                {event}
-                              </FormLabel>
-                            </FormItem>
-                          );
-                        }}
-                      />
+                        className="flex flex-row items-start space-x-3 space-y-0 mb-3"
+                      >
+                        <Checkbox
+                          data-testid={`checkbox-event-${event}`}
+                          checked={field.value?.includes(event)}
+                          onCheckedChange={(checked) => {
+                            const currentValue = field.value || [];
+                            const newValue = checked
+                              ? [...currentValue, event]
+                              : currentValue.filter((value) => value !== event);
+                            field.onChange(newValue);
+                          }}
+                        />
+                        <label className="font-normal cursor-pointer text-sm">
+                          {event}
+                        </label>
+                      </div>
                     ))}
                     <FormMessage />
                   </FormItem>
