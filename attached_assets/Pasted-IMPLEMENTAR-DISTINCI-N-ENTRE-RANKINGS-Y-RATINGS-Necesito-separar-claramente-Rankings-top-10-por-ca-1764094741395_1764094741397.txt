@@ -1,0 +1,571 @@
+IMPLEMENTAR DISTINCIÓN ENTRE RANKINGS Y RATINGS
+
+Necesito separar claramente Rankings (top 10 por categoría) de Ratings (sistema de puntos completo).
+
+PARTE 1: ACTUALIZAR COLECCIÓN DE FIRESTORE
+
+Crear nueva estructura en Firestore:
+rankings/{categoryId}
+
+category: "singles_male" | "singles_female" | "doubles_male" | etc.
+lastUpdated: Date
+top10: Array<{
+position: number (1-10)
+userId: string
+memberNumber: string
+name: string
+club: string
+rating: number
+tournamentsPlayed: number
+wins: number
+losses: number
+lastChange: number (posición anterior - posición actual)
+trend: "up" | "down" | "stable" | "new"
+}>
+
+
+PARTE 2: CREAR PÁGINA DE RANKINGS (Top 10)
+
+Modificar client/src/pages/rankings.tsx:
+```tsx
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { TrendingUp, TrendingDown, Minus, Award } from 'lucide-react';
+import { getRankings } from '@/lib/rankings';
+
+export default function Rankings() {
+  const [rankings, setRankings] = useState<any>({
+    singles_male: [],
+    singles_female: [],
+    doubles_male: [],
+    doubles_female: [],
+    doubles_mixed: []
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadAllRankings();
+  }, []);
+
+  const loadAllRankings = async () => {
+    try {
+      const categories = ['singles_male', 'singles_female', 'doubles_male', 'doubles_female', 'doubles_mixed'];
+      const data: any = {};
+      
+      for (const category of categories) {
+        data[category] = await getRankings(category);
+      }
+      
+      setRankings(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getTrendIcon = (trend: string) => {
+    if (trend === 'up') return <TrendingUp className="w-4 h-4 text-green-600" />;
+    if (trend === 'down') return <TrendingDown className="w-4 h-4 text-red-600" />;
+    return <Minus className="w-4 h-4 text-gray-400" />;
+  };
+
+  const RankingTable = ({ data, title }: { data: any[]; title: string }) => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Award className="w-5 h-5 text-yellow-500" />
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {data.length === 0 ? (
+          <p className="text-center text-gray-500 py-8">
+            No hay jugadores rankeados todavía
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {data.slice(0, 10).map((player) => (
+              <div 
+                key={player.userId}
+                className={`flex items-center gap-4 p-4 rounded-lg border ${
+                  player.position === 1 ? 'bg-yellow-50 border-yellow-300' :
+                  player.position === 2 ? 'bg-gray-50 border-gray-300' :
+                  player.position === 3 ? 'bg-orange-50 border-orange-300' :
+                  'bg-white'
+                }`}
+              >
+                {/* Posición */}
+                <div className="flex items-center justify-center w-12 h-12">
+                  {player.position === 1 && (
+                    <div className="text-3xl">🥇</div>
+                  )}
+                  {player.position === 2 && (
+                    <div className="text-3xl">🥈</div>
+                  )}
+                  {player.position === 3 && (
+                    <div className="text-3xl">🥉</div>
+                  )}
+                  {player.position > 3 && (
+                    <div className="text-2xl font-bold text-gray-600">
+                      {player.position}
+                    </div>
+                  )}
+                </div>
+
+                {/* Avatar y Nombre */}
+                <Avatar className="w-12 h-12">
+                  <AvatarImage src={player.photoURL} />
+                  <AvatarFallback>
+                    {player.name.split(' ').map((n: string) => n[0]).join('')}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="flex-1">
+                  <div className="font-bold text-lg">{player.name}</div>
+                  <div className="text-sm text-gray-600">
+                    {player.memberNumber} • {player.club || 'Sin club'}
+                  </div>
+                </div>
+
+                {/* Rating */}
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {player.rating}
+                  </div>
+                  <div className="text-xs text-gray-500">Rating</div>
+                </div>
+
+                {/* Estadísticas */}
+                <div className="text-center">
+                  <div className="text-sm font-semibold">
+                    {player.wins}-{player.losses}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {player.tournamentsPlayed} torneos
+                  </div>
+                </div>
+
+                {/* Tendencia */}
+                <div className="flex items-center gap-1">
+                  {getTrendIcon(player.trend)}
+                  {player.trend === 'new' ? (
+                    <Badge variant="default">Nuevo</Badge>
+                  ) : player.lastChange !== 0 && (
+                    <span className={`text-sm font-semibold ${
+                      player.lastChange > 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {player.lastChange > 0 ? '+' : ''}{player.lastChange}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  if (loading) return <div className="p-6">Cargando rankings...</div>;
+
+  return (
+    <div className="max-w-7xl mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Rankings Oficiales FPTM</h1>
+        <p className="text-gray-600">
+          Top 10 jugadores por categoría - Actualizado al finalizar cada torneo
+        </p>
+      </div>
+
+      <Tabs defaultValue="singles_male">
+        <TabsList className="grid grid-cols-5 w-full">
+          <TabsTrigger value="singles_male">Singles Masculino</TabsTrigger>
+          <TabsTrigger value="singles_female">Singles Femenino</TabsTrigger>
+          <TabsTrigger value="doubles_male">Dobles Masculino</TabsTrigger>
+          <TabsTrigger value="doubles_female">Dobles Femenino</TabsTrigger>
+          <TabsTrigger value="doubles_mixed">Dobles Mixtos</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="singles_male">
+          <RankingTable data={rankings.singles_male} title="Singles Masculino - Top 10" />
+        </TabsContent>
+
+        <TabsContent value="singles_female">
+          <RankingTable data={rankings.singles_female} title="Singles Femenino - Top 10" />
+        </TabsContent>
+
+        <TabsContent value="doubles_male">
+          <RankingTable data={rankings.doubles_male} title="Dobles Masculino - Top 10" />
+        </TabsContent>
+
+        <TabsContent value="doubles_female">
+          <RankingTable data={rankings.doubles_female} title="Dobles Femenino - Top 10" />
+        </TabsContent>
+
+        <TabsContent value="doubles_mixed">
+          <RankingTable data={rankings.doubles_mixed} title="Dobles Mixtos - Top 10" />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+```
+
+PARTE 3: CREAR PÁGINA DE RATINGS (Todos los jugadores)
+
+Crear: client/src/pages/ratings.tsx
+```tsx
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Search } from 'lucide-react';
+import { getAllUsers } from '@/lib/users';
+
+export default function Ratings() {
+  const [users, setUsers] = useState<any[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  useEffect(() => {
+    filterUsers();
+  }, [searchTerm, users]);
+
+  const loadUsers = async () => {
+    try {
+      const data = await getAllUsers();
+      // Ordenar por rating (mayor a menor)
+      data.sort((a, b) => (b.profile?.rating || 0) - (a.profile?.rating || 0));
+      setUsers(data);
+      setFilteredUsers(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filterUsers = () => {
+    if (!searchTerm.trim()) {
+      setFilteredUsers(users);
+      return;
+    }
+
+    const term = searchTerm.toLowerCase();
+    const filtered = users.filter(user => {
+      const firstName = user.profile?.firstName?.toLowerCase() || '';
+      const lastName = user.profile?.lastName?.toLowerCase() || '';
+      const memberNumber = user.memberNumber?.toLowerCase() || '';
+      const club = user.profile?.club?.toLowerCase() || '';
+      
+      return (
+        firstName.includes(term) ||
+        lastName.includes(term) ||
+        memberNumber.includes(term) ||
+        club.includes(term)
+      );
+    });
+
+    setFilteredUsers(filtered);
+  };
+
+  if (loading) return <div className="p-6">Cargando ratings...</div>;
+
+  return (
+    <div className="max-w-7xl mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Sistema de Ratings FPTM</h1>
+        <p className="text-gray-600 mb-4">
+          Todos los jugadores registrados - {users.length} jugadores
+        </p>
+
+        {/* Buscador */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+              <Input
+                placeholder="Buscar por nombre, apellido, número de miembro o club..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            {searchTerm && (
+              <div className="mt-2 text-sm text-gray-600">
+                Mostrando {filteredUsers.length} de {users.length} jugadores
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Tabla de Ratings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-16">Pos</TableHead>
+                <TableHead>Jugador</TableHead>
+                <TableHead>Número de Miembro</TableHead>
+                <TableHead>Club</TableHead>
+                <TableHead className="text-right">Rating</TableHead>
+                <TableHead className="text-right">Partidos</TableHead>
+                <TableHead className="text-right">V-D</TableHead>
+                <TableHead className="text-center">Estado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                    No se encontraron jugadores
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredUsers.map((user, index) => (
+                  <TableRow key={user.uid}>
+                    <TableCell className="font-semibold">
+                      {users.indexOf(user) + 1}
+                    </TableCell>
+                    
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-10 h-10">
+                          <AvatarImage src={user.profile?.photoURL} />
+                          <AvatarFallback>
+                            {user.profile?.firstName?.[0]}{user.profile?.lastName?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-semibold">
+                            {user.profile?.firstName} {user.profile?.lastName}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {user.email}
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    
+                    <TableCell className="font-mono text-sm">
+                      {user.memberNumber}
+                    </TableCell>
+                    
+                    <TableCell>
+                      {user.profile?.club || '-'}
+                    </TableCell>
+                    
+                    <TableCell className="text-right">
+                      <span className="text-lg font-bold text-blue-600">
+                        {user.profile?.rating || 1000}
+                      </span>
+                    </TableCell>
+                    
+                    <TableCell className="text-right text-gray-600">
+                      {user.profile?.tournamentsPlayed || 0}
+                    </TableCell>
+                    
+                    <TableCell className="text-right">
+                      <span className="text-green-600 font-semibold">
+                        {user.profile?.wins || 0}
+                      </span>
+                      -
+                      <span className="text-red-600 font-semibold">
+                        {user.profile?.losses || 0}
+                      </span>
+                    </TableCell>
+                    
+                    <TableCell className="text-center">
+                      <Badge variant={
+                        user.profile?.membershipStatus === 'active' ? 'default' : 'secondary'
+                      }>
+                        {user.profile?.membershipStatus === 'active' ? 'Activo' : 'Inactivo'}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+```
+
+PARTE 4: CREAR FUNCIONES DE RANKINGS
+
+Crear: client/src/lib/rankings.ts
+```typescript
+import { collection, doc, getDoc, setDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { db } from './firebase';
+
+export interface RankingEntry {
+  position: number;
+  userId: string;
+  memberNumber: string;
+  name: string;
+  club: string;
+  rating: number;
+  tournamentsPlayed: number;
+  wins: number;
+  losses: number;
+  photoURL?: string;
+  lastChange: number;
+  trend: 'up' | 'down' | 'stable' | 'new';
+}
+
+export interface Rankings {
+  category: string;
+  lastUpdated: Date;
+  top10: RankingEntry[];
+}
+
+// Obtener rankings de una categoría
+export async function getRankings(category: string): Promise<RankingEntry[]> {
+  const docRef = doc(db, 'rankings', category);
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    return data.top10 || [];
+  }
+  
+  return [];
+}
+
+// Recalcular rankings después de finalizar torneo
+export async function recalculateRankings(tournamentType: string): Promise<void> {
+  // Obtener todos los usuarios con sus ratings actualizados
+  const usersSnapshot = await getDocs(collection(db, 'users'));
+  const users = usersSnapshot.docs.map(doc => ({
+    uid: doc.id,
+    ...doc.data()
+  }));
+  
+  // Filtrar por rol jugador y ordenar por rating
+  const players = users
+    .filter(u => u.role === 'jugador')
+    .sort((a, b) => (b.profile?.rating || 0) - (a.profile?.rating || 0));
+  
+  // Obtener rankings anteriores para comparar cambios
+  const previousRankings = await getRankings(tournamentType);
+  
+  // Crear top 10
+  const top10: RankingEntry[] = players.slice(0, 10).map((player, index) => {
+    const position = index + 1;
+    const previousEntry = previousRankings.find(r => r.userId === player.uid);
+    const previousPosition = previousEntry?.position || 0;
+    
+    let trend: 'up' | 'down' | 'stable' | 'new' = 'stable';
+    let lastChange = 0;
+    
+    if (!previousEntry) {
+      trend = 'new';
+    } else {
+      lastChange = previousPosition - position;
+      if (lastChange > 0) trend = 'up';
+      else if (lastChange < 0) trend = 'down';
+    }
+    
+    return {
+      position,
+      userId: player.uid,
+      memberNumber: player.memberNumber,
+      name: `${player.profile?.firstName} ${player.profile?.lastName}`,
+      club: player.profile?.club || '',
+      rating: player.profile?.rating || 1000,
+      tournamentsPlayed: player.profile?.tournamentsPlayed || 0,
+      wins: player.profile?.wins || 0,
+      losses: player.profile?.losses || 0,
+      photoURL: player.profile?.photoURL,
+      lastChange,
+      trend
+    };
+  });
+  
+  // Guardar en Firestore
+  await setDoc(doc(db, 'rankings', tournamentType), {
+    category: tournamentType,
+    lastUpdated: Timestamp.now(),
+    top10
+  });
+}
+```
+
+PARTE 5: ACTUALIZAR finalizeTournament PARA RECALCULAR RANKINGS
+
+Modificar client/src/lib/tournaments.ts:
+```typescript
+import { recalculateRankings } from './rankings';
+
+export async function finalizeTournament(tournamentId: string): Promise<void> {
+  const tournament = await getTournament(tournamentId);
+  if (!tournament) throw new Error('Torneo no encontrado');
+  
+  // ... código existente para aplicar ratings ...
+  
+  // NUEVO: Recalcular rankings después de aplicar ratings
+  await recalculateRankings(tournament.type);
+  
+  // Marcar torneo como completado
+  await updateDoc(doc(db, 'tournaments', tournamentId), {
+    status: 'completed',
+    completedAt: Timestamp.now(),
+    updatedAt: Timestamp.now()
+  });
+}
+```
+
+PARTE 6: CREAR FUNCIÓN getAllUsers
+
+Crear: client/src/lib/users.ts
+```typescript
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from './firebase';
+
+export async function getAllUsers() {
+  const snapshot = await getDocs(collection(db, 'users'));
+  return snapshot.docs.map(doc => ({
+    uid: doc.id,
+    ...doc.data()
+  }));
+}
+```
+
+PARTE 7: ACTUALIZAR NAVEGACIÓN
+
+En la navegación principal (sidebar o header), cambiar:
+```tsx
+// ANTES:
+<Link href="/rankings">Rankings</Link>
+
+// DESPUÉS:
+<Link href="/rankings">Rankings (Top 10)</Link>
+<Link href="/ratings">Ratings (Todos)</Link>
+```
+
+PARTE 8: AGREGAR RUTAS
+
+En App.tsx:
+```tsx
+import Rankings from '@/pages/rankings';
+import Ratings from '@/pages/ratings';
+
+<Route path="/rankings" component={Rankings} />
+<Route path="/ratings" component={Ratings} />
+```
+
+Implementa TODO esto AHORA.
