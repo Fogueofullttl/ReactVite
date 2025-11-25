@@ -1,0 +1,301 @@
+Perfecto! Ahora implementa el sistema de roles y dashboard de árbitro como pedí anteriormente.
+
+FASE 1 - SISTEMA DE LOGIN CON ROLES (Mock/Simulado)
+
+1. CREAR PÁGINA /login:
+   - Título: "Iniciar Sesión - FPTM"
+   - Campo: Email (input)
+   - Campo: Password (input type="password")
+   - Dropdown: "Seleccionar Rol" con opciones:
+     * Owner
+     * Admin  
+     * Árbitro
+     * Jugador
+     * Público
+   - Botón: "Iniciar Sesión"
+   - Link: "¿No tienes cuenta? Regístrate"
+
+2. AL HACER LOGIN (Simulado - Sin Firebase por ahora):
+```typescript
+   const mockUsers = {
+     "admin@fptm.pr": { 
+       role: "admin", 
+       name: "Admin FPTM",
+       id: "admin-001",
+       memberNumber: "PRTTM-000001"
+     },
+     "arbitro@fptm.pr": { 
+       role: "arbitro", 
+       name: "Carlos Arbitro",
+       id: "arbitro-001",
+       memberNumber: "PRTTM-000010"
+     },
+     "jugador@fptm.pr": { 
+       role: "jugador", 
+       name: "Carlos Rivera",
+       id: "user1",
+       memberNumber: "PRTTM-001234",
+       birthYear: 1995,
+       rating: 1850
+     }
+   };
+   
+   // Guardar en localStorage:
+   localStorage.setItem('fptm_user', JSON.stringify(user));
+   localStorage.setItem('fptm_role', user.role);
+```
+
+3. NAVEGACIÓN DINÁMICA POR ROL:
+
+Actualizar la barra de navegación según rol:
+
+**PÚBLICO (no logueado):**
+- Inicio
+- Torneos
+- Rankings
+- [Botón: Iniciar Sesión]
+
+**JUGADOR:**
+- Inicio
+- Mis Torneos
+- Rankings
+- Mi Perfil
+- [Avatar con menú dropdown: Cerrar Sesión]
+
+**ÁRBITRO:**
+- Inicio
+- Mis Partidos (NEW!)
+- Torneos
+- [Avatar: Cerrar Sesión]
+
+**ADMIN:**
+- Dashboard Admin
+- Torneos
+- Jugadores
+- Pagos
+- Rankings
+- [Avatar: Cerrar Sesión]
+
+**OWNER:**
+- Dashboard Owner
+- Todo lo del Admin +
+- Configuración
+- Logs del Sistema
+
+4. CREAR RUTA: /arbitro/dashboard
+
+Componente: ArbitroDashboard.tsx
+
+Estructura:
+```tsx
+<div className="max-w-7xl mx-auto p-6">
+  <h1>Mis Partidos Asignados</h1>
+  
+  {/* Estadísticas */}
+  <div className="grid grid-cols-3 gap-4 mb-6">
+    <Card>
+      <CardHeader>Pendientes</CardHeader>
+      <CardContent className="text-3xl">{pendingCount}</CardContent>
+    </Card>
+    <Card>
+      <CardHeader>Completados Hoy</CardHeader>
+      <CardContent className="text-3xl">{completedTodayCount}</CardContent>
+    </Card>
+    <Card>
+      <CardHeader>Total Arbitrados</CardHeader>
+      <CardContent className="text-3xl">{totalCount}</CardContent>
+    </Card>
+  </div>
+
+  {/* Tabs: Pendientes | Completados */}
+  <Tabs defaultValue="pending">
+    <TabsList>
+      <TabsTrigger value="pending">Pendientes ({pendingCount})</TabsTrigger>
+      <TabsTrigger value="completed">Completados ({completedCount})</TabsTrigger>
+    </TabsList>
+
+    <TabsContent value="pending">
+      {/* Lista de partidos pendientes */}
+      {pendingMatches.map(match => (
+        <MatchCard 
+          key={match.id}
+          match={match}
+          onEnterResult={() => navigate(`/arbitro/match/${match.id}`)}
+        />
+      ))}
+    </TabsContent>
+
+    <TabsContent value="completed">
+      {/* Lista de partidos completados */}
+    </TabsContent>
+  </Tabs>
+</div>
+```
+
+5. COMPONENTE: MatchCard.tsx
+```tsx
+<Card className="mb-4">
+  <CardHeader>
+    <div className="flex justify-between items-center">
+      <Badge variant={match.stage === 'final' ? 'default' : 'secondary'}>
+        {match.stage} - Mesa {match.mesa}
+      </Badge>
+      <span className="text-sm text-gray-500">
+        {match.tournamentName}
+      </span>
+    </div>
+  </CardHeader>
+  
+  <CardContent>
+    <div className="grid grid-cols-3 gap-4 items-center">
+      {/* Jugador 1 */}
+      <div className="text-center">
+        <Avatar className="w-16 h-16 mx-auto mb-2">
+          <AvatarImage src={match.player1.photoURL} />
+          <AvatarFallback>{match.player1.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+        </Avatar>
+        <div className="font-semibold">{match.player1.name}</div>
+        <div className="text-sm text-gray-500">Rating: {match.player1.rating}</div>
+      </div>
+
+      {/* VS */}
+      <div className="text-center text-2xl font-bold text-gray-400">
+        VS
+      </div>
+
+      {/* Jugador 2 */}
+      <div className="text-center">
+        <Avatar className="w-16 h-16 mx-auto mb-2">
+          <AvatarImage src={match.player2.photoURL} />
+          <AvatarFallback>{match.player2.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+        </Avatar>
+        <div className="font-semibold">{match.player2.name}</div>
+        <div className="text-sm text-gray-500">Rating: {match.player2.rating}</div>
+      </div>
+    </div>
+
+    {/* Botón de acción */}
+    {match.status === 'pending' && (
+      <Button 
+        className="w-full mt-4" 
+        onClick={onEnterResult}
+      >
+        📝 Ingresar Resultado
+      </Button>
+    )}
+
+    {match.status === 'completed' && match.result && (
+      <div className="mt-4 p-4 bg-green-50 rounded-lg">
+        <div className="flex justify-between items-center">
+          <span className="font-semibold">Resultado:</span>
+          <span className="text-lg">
+            {match.result.sets.map(s => `${s.player1}-${s.player2}`).join(', ')}
+          </span>
+        </div>
+        <div className="text-sm text-gray-600 mt-2">
+          Ganador: {match.result.winner === match.player1.id ? match.player1.name : match.player2.name}
+        </div>
+      </div>
+    )}
+  </CardContent>
+</Card>
+```
+
+6. DATOS MOCK DE PARTIDOS:
+
+Crear archivo: client/src/data/mockMatches.ts
+```typescript
+export const mockMatches = [
+  {
+    id: "match-001",
+    tournamentId: "torneo-001",
+    tournamentName: "Campeonato Nacional 2025",
+    stage: "groups",
+    round: "groups",
+    mesa: 1,
+    status: "pending",
+    referee: "arbitro-001",
+    scheduledTime: new Date("2025-01-25T14:00:00"),
+    player1: {
+      id: "user1",
+      name: "Carlos Rivera",
+      birthYear: 1995,
+      rating: 1850,
+      photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=Carlos"
+    },
+    player2: {
+      id: "user2",
+      name: "María González",
+      birthYear: 1998,
+      rating: 1720,
+      photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=Maria"
+    }
+  },
+  {
+    id: "match-002",
+    tournamentId: "torneo-001",
+    tournamentName: "Campeonato Nacional 2025",
+    stage: "groups",
+    round: "groups",
+    mesa: 2,
+    status: "pending",
+    referee: "arbitro-001",
+    scheduledTime: new Date("2025-01-25T15:00:00"),
+    player1: {
+      id: "user3",
+      name: "Luis Pérez",
+      birthYear: 1992,
+      rating: 1680,
+      photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=Luis"
+    },
+    player2: {
+      id: "user4",
+      name: "Ana Martínez",
+      birthYear: 2000,
+      rating: 1590,
+      photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=Ana"
+    }
+  },
+  {
+    id: "match-003",
+    tournamentId: "torneo-001",
+    tournamentName: "Campeonato Nacional 2025",
+    stage: "semifinals",
+    round: "semifinals",
+    mesa: 1,
+    status: "completed",
+    referee: "arbitro-001",
+    player1: {
+      id: "user5",
+      name: "Jorge Sánchez",
+      birthYear: 1988,
+      rating: 1920,
+      photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=Jorge"
+    },
+    player2: {
+      id: "user1",
+      name: "Carlos Rivera",
+      birthYear: 1995,
+      rating: 1850,
+      photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=Carlos"
+    },
+    result: {
+      sets: [
+        { player1: 11, player2: 7 },
+        { player1: 9, player2: 11 },
+        { player1: 11, player2: 8 },
+        { player1: 11, player2: 9 }
+      ],
+      winner: "user5",
+      validatedBy: {
+        user5: { validated: true, timestamp: new Date() },
+        user1: { validated: true, timestamp: new Date() }
+      },
+      enteredBy: "arbitro-001",
+      enteredAt: new Date()
+    }
+  }
+];
+```
+
+Implementa todo esto ahora. Esto es la base para luego crear la página de scoring.

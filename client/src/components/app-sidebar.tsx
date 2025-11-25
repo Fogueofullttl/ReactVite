@@ -9,6 +9,8 @@ import {
   User,
   Shield,
   Gavel,
+  LogOut,
+  LogIn,
 } from "lucide-react";
 import {
   Sidebar,
@@ -24,18 +26,10 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
+import { useAuth } from "@/contexts/AuthContext";
 import type { UserRole } from "@shared/schema";
-
-// Mock user - will be replaced with real auth
-const mockUser = {
-  name: "Usuario Invitado",
-  email: "invitado@example.com",
-  role: "publico" as UserRole,
-  memberNumber: "PRTTM-000000",
-  membershipStatus: "expired" as "active" | "expired" | "pending",
-  photoUrl: null,
-};
 
 const roleIcons = {
   owner: Shield,
@@ -53,7 +47,7 @@ const roleLabels: Record<UserRole, string> = {
   publico: "Público",
 };
 
-const menuItemsByRole: Record<UserRole, Array<{ title: string; url: string; icon: any }>> = {
+const menuItemsByRole: Record<string, Array<{ title: string; url: string; icon: any }>> = {
   publico: [
     { title: "Inicio", url: "/", icon: Home },
     { title: "Torneos", url: "/tournaments", icon: Trophy },
@@ -67,31 +61,32 @@ const menuItemsByRole: Record<UserRole, Array<{ title: string; url: string; icon
     { title: "Perfil", url: "/profile", icon: User },
   ],
   arbitro: [
-    { title: "Panel", url: "/arbitro", icon: Home },
-    { title: "Partidos Asignados", url: "/arbitro/matches", icon: Gavel },
+    { title: "Mis Partidos", url: "/arbitro/dashboard", icon: Gavel },
     { title: "Torneos", url: "/tournaments", icon: Trophy },
-    { title: "Rankings", url: "/rankings", icon: TrendingUp },
   ],
   admin: [
-    { title: "Panel", url: "/admin", icon: Home },
+    { title: "Dashboard Admin", url: "/admin/registrations", icon: Home },
     { title: "Torneos", url: "/tournaments", icon: Trophy },
-    { title: "Gestión de Usuarios", url: "/admin/users", icon: Users },
-    { title: "Registros", url: "/admin/registrations", icon: Medal },
+    { title: "Jugadores", url: "/admin/users", icon: Users },
+    { title: "Pagos", url: "/admin/registrations", icon: Medal },
     { title: "Rankings", url: "/rankings", icon: TrendingUp },
   ],
   owner: [
-    { title: "Panel", url: "/owner", icon: Home },
+    { title: "Dashboard Owner", url: "/owner", icon: Home },
     { title: "Analíticas", url: "/owner/analytics", icon: TrendingUp },
     { title: "Torneos", url: "/tournaments", icon: Trophy },
-    { title: "Todos los Usuarios", url: "/owner/users", icon: Users },
+    { title: "Usuarios", url: "/owner/users", icon: Users },
     { title: "Configuración", url: "/owner/settings", icon: Settings },
   ],
 };
 
 export function AppSidebar() {
-  const [location] = useLocation();
-  const items = menuItemsByRole[mockUser.role] || menuItemsByRole.publico;
-  const RoleIcon = roleIcons[mockUser.role] || User;
+  const [location, setLocation] = useLocation();
+  const { user, logout, isAuthenticated } = useAuth();
+  
+  const userRole = user?.role || 'publico';
+  const items = menuItemsByRole[userRole] || menuItemsByRole.publico;
+  const RoleIcon = roleIcons[userRole] || User;
 
   const getInitials = (name: string) => {
     return name
@@ -102,23 +97,9 @@ export function AppSidebar() {
       .slice(0, 2);
   };
 
-  const getMembershipBadgeVariant = () => {
-    if (mockUser.membershipStatus === "active") return "default";
-    if (mockUser.membershipStatus === "expired") return "destructive";
-    return "secondary";
-  };
-
-  const getMembershipLabel = () => {
-    switch (mockUser.membershipStatus) {
-      case "active":
-        return "Activa";
-      case "expired":
-        return "Expirada";
-      case "pending":
-        return "Pendiente";
-      default:
-        return mockUser.membershipStatus;
-    }
+  const handleLogout = () => {
+    logout();
+    setLocation("/login");
   };
 
   return (
@@ -156,29 +137,50 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4">
-        <div className="flex flex-col gap-3 rounded-lg border bg-card p-3">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={mockUser.photoUrl || undefined} />
-              <AvatarFallback>{getInitials(mockUser.name)}</AvatarFallback>
-            </Avatar>
-            <div className="flex flex-1 flex-col overflow-hidden">
-              <span className="truncate text-sm font-medium">{mockUser.name}</span>
-              <span className="truncate text-xs text-muted-foreground font-mono">
-                {mockUser.memberNumber}
-              </span>
+        {isAuthenticated && user ? (
+          <div className="flex flex-col gap-3 rounded-lg border bg-card p-3">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+              </Avatar>
+              <div className="flex flex-1 flex-col overflow-hidden">
+                <span className="truncate text-sm font-medium">{user.name}</span>
+                <span className="truncate text-xs text-muted-foreground font-mono">
+                  {user.memberNumber}
+                </span>
+              </div>
+              <RoleIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             </div>
-            <RoleIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <div className="flex items-center justify-between gap-2">
+              <Badge variant="outline" className="text-xs">
+                {roleLabels[userRole as UserRole]}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="h-7 gap-2"
+                data-testid="button-logout"
+              >
+                <LogOut className="h-3 w-3" />
+                <span className="text-xs">Salir</span>
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant={getMembershipBadgeVariant()} className="text-xs">
-              {getMembershipLabel()}
-            </Badge>
-            <Badge variant="outline" className="text-xs">
-              {roleLabels[mockUser.role]}
-            </Badge>
+        ) : (
+          <div className="p-3">
+            <Button
+              asChild
+              className="w-full"
+              data-testid="button-login-sidebar"
+            >
+              <Link href="/login">
+                <LogIn className="mr-2 h-4 w-4" />
+                Iniciar Sesión
+              </Link>
+            </Button>
           </div>
-        </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   );
