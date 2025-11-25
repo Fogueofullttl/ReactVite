@@ -13,6 +13,13 @@ export default function ArbitroDashboard() {
 
   useEffect(() => {
     setMatches(matchStore.getMatches());
+    
+    const handleMatchesUpdate = () => {
+      setMatches(matchStore.getMatches());
+    };
+    
+    window.addEventListener("matches:updated", handleMatchesUpdate);
+    return () => window.removeEventListener("matches:updated", handleMatchesUpdate);
   }, []);
 
   const refereeMatches = matches.filter(m => m.referee === user?.id);

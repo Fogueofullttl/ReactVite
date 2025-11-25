@@ -27,6 +27,13 @@ export default function AdminVerifyResults() {
 
   useEffect(() => {
     setMatches(matchStore.getMatches());
+    
+    const handleMatchesUpdate = () => {
+      setMatches(matchStore.getMatches());
+    };
+    
+    window.addEventListener("matches:updated", handleMatchesUpdate);
+    return () => window.removeEventListener("matches:updated", handleMatchesUpdate);
   }, []);
 
   const pendingMatches = matches.filter(m => m.status === 'pending_verification');
@@ -65,8 +72,6 @@ export default function AdminVerifyResults() {
       const updatedMatch = matchStore.approveResult(matchId, user.id);
       
       if (updatedMatch) {
-        setMatches(matchStore.getMatches());
-        
         toast({
           title: "✓ Resultado Aprobado",
           description: "El resultado ha sido verificado y los ratings se actualizarán.",
@@ -98,8 +103,6 @@ export default function AdminVerifyResults() {
       const updatedMatch = matchStore.rejectResult(rejectingMatchId, user.id, rejectReason);
       
       if (updatedMatch) {
-        setMatches(matchStore.getMatches());
-        
         toast({
           title: "Resultado Rechazado",
           description: "Los jugadores han sido notificados y pueden volver a ingresar el resultado.",

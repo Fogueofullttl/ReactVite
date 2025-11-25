@@ -36,6 +36,7 @@ export default function MatchScoring() {
   const [observations, setObservations] = useState("");
   const [showValidation, setShowValidation] = useState(false);
   const [validationComplete, setValidationComplete] = useState(false);
+  const [isPending, setIsPending] = useState(false);
   const [match, setMatch] = useState(matchStore.getMatch(matchId as string));
 
   const getInitials = (name: string) => {
@@ -115,8 +116,9 @@ export default function MatchScoring() {
   };
 
   const handleConfirmResult = () => {
-    if (!match || !user) return;
+    if (!match || !user || isPending) return;
 
+    setIsPending(true);
     const completedSets = getCompletedSets();
     const winner = getWinner();
     const winnerId = winner === "player1" ? match.player1.id : match.player2.id;
@@ -154,6 +156,7 @@ export default function MatchScoring() {
         description: "No se pudo guardar el resultado del partido.",
         variant: "destructive",
       });
+      setIsPending(false);
     }
   };
 
@@ -214,8 +217,8 @@ export default function MatchScoring() {
                 {match.stage === 'final' ? 'Final' : match.stage === 'semifinals' ? 'Semifinal' : 'Fase de Grupos'} - Mesa #{match.mesa}
               </p>
             </div>
-            <Badge variant={match.status === 'pending' ? 'default' : 'secondary'} className="text-sm">
-              {match.status === 'pending' ? 'Pendiente' : 'Completado'}
+            <Badge variant={match.status === 'pending_result' ? 'default' : 'secondary'} className="text-sm">
+              {match.status === 'pending_result' ? 'Pendiente' : 'Completado'}
             </Badge>
           </div>
         </CardHeader>
@@ -420,10 +423,11 @@ export default function MatchScoring() {
                   onClick={handleConfirmResult}
                   className="w-full bg-green-600 hover:bg-green-700"
                   size="lg"
+                  disabled={isPending}
                   data-testid="button-confirm-result"
                 >
                   <CheckCircle2 className="mr-2 h-5 w-5" />
-                  ✓ Confirmar y Guardar Resultado
+                  {isPending ? "Guardando..." : "✓ Confirmar y Guardar Resultado"}
                 </Button>
                 <p className="text-xs text-center text-muted-foreground mt-2">
                   Los ratings ELO se actualizarán automáticamente

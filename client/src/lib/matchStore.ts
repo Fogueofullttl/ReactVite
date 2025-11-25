@@ -11,6 +11,7 @@ export const matchStore = {
     const index = matches.findIndex(m => m.id === id);
     if (index !== -1) {
       matches[index] = { ...matches[index], ...updates };
+      window.dispatchEvent(new CustomEvent("matches:updated"));
       return matches[index];
     }
     return null;
@@ -123,5 +124,6 @@ export const matchStore = {
   
   reset: () => {
     matches = [...initialMatches];
+    window.dispatchEvent(new CustomEvent("matches:updated"));
   }
 };

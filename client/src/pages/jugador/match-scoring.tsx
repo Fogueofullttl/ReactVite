@@ -36,6 +36,7 @@ export default function JugadorMatchScoring() {
   const [observations, setObservations] = useState("");
   const [showValidation, setShowValidation] = useState(false);
   const [validationComplete, setValidationComplete] = useState(false);
+  const [isPending, setIsPending] = useState(false);
   const [match, setMatch] = useState(matchStore.getMatch(matchId as string));
 
   const getInitials = (name: string) => {
@@ -115,8 +116,9 @@ export default function JugadorMatchScoring() {
   };
 
   const handleConfirmResult = () => {
-    if (!match || !user) return;
+    if (!match || !user || isPending) return;
 
+    setIsPending(true);
     const completedSets = getCompletedSets();
     const winner = getWinner();
     const winnerId = winner === "player1" ? match.player1.id : match.player2.id;
@@ -154,6 +156,7 @@ export default function JugadorMatchScoring() {
         description: "No se pudo guardar el resultado del partido.",
         variant: "destructive",
       });
+      setIsPending(false);
     }
   };
 
@@ -445,10 +448,11 @@ export default function JugadorMatchScoring() {
                   onClick={handleConfirmResult}
                   className="w-full bg-orange-600 hover:bg-orange-700"
                   size="lg"
+                  disabled={isPending}
                   data-testid="button-confirm-result"
                 >
                   <CheckCircle2 className="mr-2 h-5 w-5" />
-                  ✓ Enviar Resultado para Verificación
+                  {isPending ? "Enviando..." : "✓ Enviar Resultado para Verificación"}
                 </Button>
                 <p className="text-xs text-center text-muted-foreground mt-2">
                   El resultado quedará pendiente hasta que un administrador lo apruebe

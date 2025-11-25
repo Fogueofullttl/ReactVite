@@ -16,6 +16,13 @@ export default function JugadorDashboard() {
 
   useEffect(() => {
     setMatches(matchStore.getMatches());
+    
+    const handleMatchesUpdate = () => {
+      setMatches(matchStore.getMatches());
+    };
+    
+    window.addEventListener("matches:updated", handleMatchesUpdate);
+    return () => window.removeEventListener("matches:updated", handleMatchesUpdate);
   }, []);
 
   // Filter matches where user is a player
