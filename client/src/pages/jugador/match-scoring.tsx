@@ -150,7 +150,7 @@ export default function JugadorMatchScoring() {
         setMatch(updatedMatch);
         
         toast({
-          title: "✓ Resultado Enviado",
+          title: "Resultado Enviado",
           description: "El resultado ha sido registrado y está esperando verificación del administrador.",
         });
 
@@ -356,7 +356,7 @@ export default function JugadorMatchScoring() {
                     <div className="w-32 text-center">
                       {isValid && (
                         <Badge variant={p1 > p2 ? "default" : "secondary"} className="text-sm px-3 py-1">
-                          ✓ {p1 > p2 ? match.player1.name.split(" ")[0] : match.player2.name.split(" ")[0]}
+                          {p1 > p2 ? match.player1.name.split(" ")[0] : match.player2.name.split(" ")[0]}
                         </Badge>
                       )}
                       {hasError && (
@@ -419,7 +419,7 @@ export default function JugadorMatchScoring() {
               size="lg"
               data-testid="button-continue-validation"
             >
-              {isValidResult() ? "✓ Continuar a Validación de Jugadores" : "Completa al menos 3 sets válidos"}
+              {isValidResult() ? "Continuar a Validación de Jugadores" : "Completa al menos 3 sets válidos"}
             </Button>
           </CardContent>
         </Card>
@@ -461,7 +461,7 @@ export default function JugadorMatchScoring() {
                   data-testid="button-confirm-result"
                 >
                   <CheckCircle2 className="mr-2 h-5 w-5" />
-                  {isPending ? "Enviando..." : "✓ Enviar Resultado para Verificación"}
+                  {isPending ? "Enviando..." : "Enviar Resultado para Verificación"}
                 </Button>
                 <p className="text-xs text-center text-muted-foreground mt-2">
                   El resultado quedará pendiente hasta que un administrador lo apruebe

@@ -256,7 +256,7 @@ export function MatchScoreEntry({ match, onSubmit }: MatchScoreEntryProps) {
 
           {!player1Validated || !player2Validated ? (
             <div className="text-sm text-muted-foreground text-center">
-              <p>⚠️ Both players must verify the result before submission</p>
+              <p>Ambos jugadores deben verificar el resultado antes de enviarlo</p>
             </div>
           ) : null}
         </form>

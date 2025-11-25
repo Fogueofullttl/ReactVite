@@ -79,7 +79,7 @@ export default function AdminVerifyResults() {
       const result = await seedMatches();
       
       toast({
-        title: "✓ Datos Cargados",
+        title: "Datos Cargados",
         description: `${result.success} partidos mock cargados exitosamente en Firestore.`,
       });
     } catch (error) {
@@ -116,7 +116,7 @@ export default function AdminVerifyResults() {
         );
         
         toast({
-          title: "✓ Resultado Aprobado",
+          title: "Resultado Aprobado",
           description: (
             <div className="space-y-2 text-sm">
               <div>El resultado ha sido verificado y los ratings actualizados.</div>
@@ -444,7 +444,7 @@ export default function AdminVerifyResults() {
                 data-testid={`button-approve-${match.id}`}
               >
                 <CheckCircle2 className="mr-2 h-4 w-4" />
-                ✓ Aprobar Resultado
+                Aprobar Resultado
               </Button>
               <Button
                 className="flex-1"

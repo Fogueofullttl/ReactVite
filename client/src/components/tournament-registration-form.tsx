@@ -165,9 +165,9 @@ export function TournamentRegistrationForm({
             <div className="p-4 rounded-lg bg-muted/50 text-sm">
               <p className="font-semibold mb-2">Registration Requirements:</p>
               <ul className="space-y-1 text-muted-foreground">
-                <li>✓ Active membership required</li>
-                <li>✓ Payment must be verified before tournament starts</li>
-                <li>✓ Refunds available up to 48 hours before event</li>
+                <li>Active membership required</li>
+                <li>Payment must be verified before tournament starts</li>
+                <li>Refunds available up to 48 hours before event</li>
               </ul>
             </div>
 

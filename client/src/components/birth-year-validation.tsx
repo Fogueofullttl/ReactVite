@@ -198,7 +198,7 @@ export function BirthYearValidation({ players, onAllValidated }: BirthYearValida
             <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
               <CheckCircle2 className="h-5 w-5" />
               <span className="font-medium">
-                ✓ Todos los jugadores han sido validados correctamente
+                Todos los jugadores han sido validados correctamente
               </span>
             </div>
             <p className="text-sm text-green-600 dark:text-green-400 mt-1">
