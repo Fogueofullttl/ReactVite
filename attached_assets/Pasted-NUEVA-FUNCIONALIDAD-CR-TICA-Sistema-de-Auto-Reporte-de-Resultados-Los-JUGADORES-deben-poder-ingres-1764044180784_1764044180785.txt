@@ -1,0 +1,338 @@
+NUEVA FUNCIONALIDAD CRÍTICA: Sistema de Auto-Reporte de Resultados
+
+Los JUGADORES deben poder ingresar sus propios resultados, que quedan como "pending_verification" hasta que un ADMIN los apruebe o rechace.
+
+IMPLEMENTAR LO SIGUIENTE:
+
+1. MODIFICAR ESTADOS DE PARTIDOS:
+```typescript
+type MatchStatus = 
+  | 'scheduled'        // Programado, sin resultado
+  | 'pending_result'   // Esperando que jugadores ingresen resultado
+  | 'pending_verification'  // Resultado ingresado, esperando admin
+  | 'verified'         // Resultado verificado por admin
+  | 'disputed'         // Jugadores no están de acuerdo
+  | 'rejected';        // Admin rechazó el resultado
+```
+
+2. CREAR RUTA: /jugador/match/:matchId
+
+Similar a la página de árbitro, pero:
+- Cualquier jugador del partido puede ingresar el resultado
+- Después de ingresar sets, AMBOS jugadores deben validar con año de nacimiento
+- El resultado queda con status: "pending_verification"
+- Se notifica al admin para verificación
+
+Flujo:
+1. Jugador 1 ingresa resultado: 11-7, 11-9, 11-8
+2. Click "Continuar a Validación"
+3. Jugador 1 valida su año de nacimiento
+4. Jugador 2 debe validar su año de nacimiento
+5. Cuando ambos validan → status = "pending_verification"
+6. Se guarda con flag: waitingAdminApproval: true
+
+3. PÁGINA ADMIN: /admin/verify-results
+
+Dashboard para verificar resultados pendientes:
+```tsx
+<div className="max-w-7xl mx-auto p-6">
+  <h1 className="text-3xl font-bold mb-6">Verificación de Resultados</h1>
+
+  {/* Estadísticas */}
+  <div className="grid grid-cols-3 gap-4 mb-6">
+    <Card>
+      <CardHeader>Pendientes de Verificación</CardHeader>
+      <CardContent className="text-3xl text-orange-600">
+        {pendingCount}
+      </CardContent>
+    </Card>
+    <Card>
+      <CardHeader>Verificados Hoy</CardHeader>
+      <CardContent className="text-3xl text-green-600">
+        {verifiedTodayCount}
+      </CardContent>
+    </Card>
+    <Card>
+      <CardHeader>Rechazados</CardHeader>
+      <CardContent className="text-3xl text-red-600">
+        {rejectedCount}
+      </CardContent>
+    </Card>
+  </div>
+
+  {/* Tabs */}
+  <Tabs defaultValue="pending">
+    <TabsList>
+      <TabsTrigger value="pending">
+        Pendientes ({pendingCount})
+      </TabsTrigger>
+      <TabsTrigger value="verified">
+        Verificados
+      </TabsTrigger>
+      <TabsTrigger value="rejected">
+        Rechazados
+      </TabsTrigger>
+    </Tabs>
+
+    <TabsContent value="pending">
+      {pendingMatches.map(match => (
+        <Card key={match.id} className="mb-4">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="font-bold">{match.tournamentName}</h3>
+                <p className="text-sm text-gray-500">
+                  {match.stage} - Mesa {match.mesa}
+                </p>
+              </div>
+              <Badge variant="warning">Pendiente Verificación</Badge>
+            </div>
+          </CardHeader>
+
+          <CardContent>
+            {/* Jugadores y Resultado */}
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="text-center">
+                <Avatar className="w-16 h-16 mx-auto mb-2">
+                  <AvatarImage src={match.player1.photoURL} />
+                  <AvatarFallback>
+                    {match.player1.name.split(' ').map(n => n[0]).join('')}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="font-semibold">{match.player1.name}</div>
+                <div className="text-sm text-gray-500">
+                  Rating: {match.player1.rating}
+                </div>
+              </div>
+
+              {/* Resultado */}
+              <div className="flex flex-col items-center justify-center">
+                <div className="text-2xl font-bold mb-2">
+                  {match.result.setsCount.player1} - {match.result.setsCount.player2}
+                </div>
+                <div className="text-sm text-gray-600">
+                  {match.result.sets.map(s => `${s.player1}-${s.player2}`).join(', ')}
+                </div>
+                <Badge variant="success" className="mt-2">
+                  Ganador: {match.result.winner === match.player1.id 
+                    ? match.player1.name 
+                    : match.player2.name}
+                </Badge>
+              </div>
+
+              <div className="text-center">
+                <Avatar className="w-16 h-16 mx-auto mb-2">
+                  <AvatarImage src={match.player2.photoURL} />
+                  <AvatarFallback>
+                    {match.player2.name.split(' ').map(n => n[0]).join('')}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="font-semibold">{match.player2.name}</div>
+                <div className="text-sm text-gray-500">
+                  Rating: {match.player2.rating}
+                </div>
+              </div>
+            </div>
+
+            {/* Info de Validación */}
+            <div className="bg-blue-50 p-3 rounded-lg mb-4">
+              <div className="text-sm">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <span>{match.player1.name} validó su identidad</span>
+                  <span className="text-xs text-gray-500">
+                    {formatDate(match.result.validatedBy[match.player1.id].timestamp)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <span>{match.player2.name} validó su identidad</span>
+                  <span className="text-xs text-gray-500">
+                    {formatDate(match.result.validatedBy[match.player2.id].timestamp)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Observaciones */}
+            {match.result.observations && (
+              <div className="bg-gray-50 p-3 rounded-lg mb-4">
+                <p className="text-sm font-semibold mb-1">Observaciones:</p>
+                <p className="text-sm text-gray-700">{match.result.observations}</p>
+              </div>
+            )}
+
+            {/* Botones de Acción */}
+            <div className="flex gap-3">
+              <Button
+                className="flex-1"
+                variant="default"
+                onClick={() => handleApprove(match.id)}
+              >
+                ✓ Aprobar Resultado
+              </Button>
+              <Button
+                className="flex-1"
+                variant="destructive"
+                onClick={() => setRejectingMatchId(match.id)}
+              >
+                ✗ Rechazar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </TabsContent>
+  </Tabs>
+</div>
+```
+
+4. MODAL DE RECHAZO:
+
+Cuando admin hace click en "Rechazar", mostrar modal:
+```tsx
+<Dialog open={rejectingMatchId !== null}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Rechazar Resultado</DialogTitle>
+      <DialogDescription>
+        Indica la razón por la cual rechazas este resultado.
+        El partido volverá a estado "pending_result".
+      </DialogDescription>
+    </DialogHeader>
+
+    <Textarea
+      placeholder="Ej: El resultado no coincide con la planilla física..."
+      value={rejectReason}
+      onChange={(e) => setRejectReason(e.target.value)}
+      rows={4}
+    />
+
+    <DialogFooter>
+      <Button variant="outline" onClick={() => setRejectingMatchId(null)}>
+        Cancelar
+      </Button>
+      <Button
+        variant="destructive"
+        onClick={() => handleReject(rejectingMatchId, rejectReason)}
+      >
+        Confirmar Rechazo
+      </Button>
+    </DialogFooter>
+  </Dialog>
+</Dialog>
+```
+
+5. LÓGICA DE APROBACIÓN:
+```typescript
+async function handleApprove(matchId: string) {
+  try {
+    const match = getMatch(matchId);
+    
+    // Actualizar status
+    updateMatch(matchId, {
+      status: 'verified',
+      verifiedBy: currentUser.id,
+      verifiedAt: new Date()
+    });
+    
+    // Calcular y aplicar cambio de rating
+    const ratingChange = calculateRatingChange(match);
+    updatePlayerRating(match.player1.id, ratingChange.player1);
+    updatePlayerRating(match.player2.id, ratingChange.player2);
+    
+    // Actualizar rankings
+    recalculateRankings();
+    
+    // Notificar jugadores
+    sendNotification(match.player1.id, {
+      type: 'result_verified',
+      message: `Tu resultado contra ${match.player2.name} fue verificado`
+    });
+    sendNotification(match.player2.id, {
+      type: 'result_verified',
+      message: `Tu resultado contra ${match.player1.name} fue verificado`
+    });
+    
+    toast.success('Resultado aprobado y ratings actualizados');
+    
+  } catch (error) {
+    toast.error('Error al aprobar resultado');
+  }
+}
+
+async function handleReject(matchId: string, reason: string) {
+  try {
+    updateMatch(matchId, {
+      status: 'rejected',
+      rejectedBy: currentUser.id,
+      rejectedAt: new Date(),
+      rejectionReason: reason,
+      result: null // Limpiar resultado
+    });
+    
+    // Notificar jugadores
+    sendNotification(match.player1.id, {
+      type: 'result_rejected',
+      message: `Tu resultado fue rechazado. Razón: ${reason}`
+    });
+    sendNotification(match.player2.id, {
+      type: 'result_rejected',
+      message: `Tu resultado fue rechazado. Razón: ${reason}`
+    });
+    
+    toast.success('Resultado rechazado');
+    setRejectingMatchId(null);
+    setRejectReason('');
+    
+  } catch (error) {
+    toast.error('Error al rechazar resultado');
+  }
+}
+```
+
+6. DASHBOARD DE JUGADOR: Mostrar "Mis Partidos"
+
+En /jugador/dashboard:
+- Partidos pendientes de ingresar resultado
+- Partidos esperando verificación del admin
+- Partidos completados
+
+7. ACTUALIZAR NAVEGACIÓN:
+
+**Jugador:**
+- Agregar: "Mis Partidos" → /jugador/dashboard
+
+**Admin:**
+- Agregar: "Verificar Resultados" → /admin/verify-results
+- Mostrar badge con número de pendientes
+
+8. DATOS MOCK:
+
+Agregar 2 partidos con status "pending_verification":
+```typescript
+{
+  id: "match-004",
+  status: "pending_verification",
+  result: {
+    sets: [
+      { player1: 11, player2: 8 },
+      { player1: 11, player2: 9 },
+      { player1: 9, player2: 11 },
+      { player1: 11, player2: 7 }
+    ],
+    winner: "user1",
+    setsCount: { player1: 3, player2: 1 },
+    validatedBy: {
+      user1: { validated: true, timestamp: new Date() },
+      user2: { validated: true, timestamp: new Date() }
+    },
+    enteredBy: "user1",
+    enteredAt: new Date(),
+    observations: "Partido muy reñido"
+  },
+  waitingAdminApproval: true
+}
+```
+
+Implementa todo esto AHORA. Este es el flujo más realista para torneos.
