@@ -1,0 +1,78 @@
+Continúa con la implementación de Firebase. Sigue estos pasos exactos:
+
+PASO 1: Verificar que firebase esté instalado
+Si no está, ejecuta: npm install firebase
+
+PASO 2: Crear client/src/lib/firebase.ts con esta configuración:
+```typescript
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.appspot.com`,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
+};
+
+const app = initializeApp(firebaseConfig);
+
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
+
+export default app;
+```
+
+PASO 3: Crear sistema de registro con generación automática de número PRTTM
+
+Crear: client/src/pages/register.tsx
+
+Debe incluir:
+- Formulario con: firstName, lastName, email, password, birthYear, club
+- Al registrar, genera PRTTM-XXXXXX automático
+- Crea cuenta en Firebase Auth
+- Guarda perfil en Firestore users collection
+- Rol por defecto: "jugador"
+- Rating inicial: 1000
+
+PASO 4: Actualizar AuthContext para usar Firebase Auth real
+
+Reemplazar el mock actual con:
+- signInWithEmailAndPassword de Firebase
+- onAuthStateChanged para persistencia
+- Obtener datos de usuario desde Firestore
+
+PASO 5: Crear función para generar número de miembro único
+```typescript
+async function generateMemberNumber(): Promise<string> {
+  const counterRef = doc(db, 'counters', 'memberNumbers');
+  const counterDoc = await getDoc(counterRef);
+  
+  let nextNumber = 1;
+  if (counterDoc.exists()) {
+    nextNumber = counterDoc.data().current + 1;
+  }
+  
+  await setDoc(counterRef, { current: nextNumber });
+  
+  return `PRTTM-${nextNumber.toString().padStart(6, '0')}`;
+}
+```
+
+PASO 6: Actualizar página de login para usar Firebase Auth
+
+Ya existe /login, solo actualiza el handleSubmit para usar:
+- signInWithEmailAndPassword
+- No más mock users
+- Redirect según rol del usuario obtenido de Firestore
+
+IMPORTANTE: 
+- NO borres el código de matchStore todavía (lo migraremos después)
+- Primero enfócate en Auth (login/register)
+- Asegúrate que los Secrets de Firebase estén configurados
+
+¿Empiezo con esto?
