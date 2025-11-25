@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, CreditCard, Users, AlertCircle, CheckCircle } from "lucide-react";
@@ -17,6 +18,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 
 const registerSchema = z.object({
   playerId: z.string().min(1, "Debes seleccionar un jugador"),
+  events: z.array(z.string()).min(1, "Debes seleccionar al menos un evento"),
   athMovilReference: z
     .string()
     .length(5, "Debe ser exactamente 5 caracteres")
@@ -45,6 +47,7 @@ export default function TournamentRegister() {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       playerId: "",
+      events: [],
       athMovilReference: "",
     },
   });
@@ -53,6 +56,7 @@ export default function TournamentRegister() {
     mutationFn: async (data: RegisterFormData) => {
       return await apiRequest("POST", `/api/tournaments/${id}/register`, {
         playerId: data.playerId,
+        events: data.events,
         athMovilReference: data.athMovilReference,
       });
     },
@@ -233,6 +237,56 @@ export default function TournamentRegister() {
                     <FormDescription>
                       TODO: Este campo será automático cuando implementemos autenticación.
                     </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="events"
+                render={() => (
+                  <FormItem>
+                    <div className="mb-4">
+                      <FormLabel>Eventos</FormLabel>
+                      <FormDescription>
+                        Selecciona los eventos a los que deseas inscribirte
+                      </FormDescription>
+                    </div>
+                    {tournament.events?.map((event) => (
+                      <FormField
+                        key={event}
+                        control={form.control}
+                        name="events"
+                        render={({ field }) => {
+                          return (
+                            <FormItem
+                              key={event}
+                              className="flex flex-row items-start space-x-3 space-y-0"
+                            >
+                              <FormControl>
+                                <Checkbox
+                                  data-testid={`checkbox-event-${event}`}
+                                  checked={field.value?.includes(event)}
+                                  onCheckedChange={(checked) => {
+                                    return checked
+                                      ? field.onChange([...field.value, event])
+                                      : field.onChange(
+                                          field.value?.filter(
+                                            (value) => value !== event
+                                          )
+                                        );
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="font-normal cursor-pointer">
+                                {event}
+                              </FormLabel>
+                            </FormItem>
+                          );
+                        }}
+                      />
+                    ))}
                     <FormMessage />
                   </FormItem>
                 )}
