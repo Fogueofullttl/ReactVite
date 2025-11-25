@@ -3,6 +3,9 @@
 ## Overview
 The FPTM Tournament Management System is designed to streamline the administration of table tennis tournaments for the Puerto Rican Table Tennis Federation. The project aims to provide a robust platform for managing players, tournaments, match scoring, and rankings. Key capabilities include automated ELO rating calculation, secure player identification through birth year validation, and a future-proof architecture ready for Firebase integration. The system's purpose is to modernize tournament operations, enhance player experience, and provide accurate, real-time data for FPTM members and the public.
 
+## Recent Changes (November 25, 2025)
+-   **Multi-Event Tournament Registration:** Implemented complete system for players to select multiple events when registering for tournaments. Schema updated with `events: text().array()` in both tournaments and registrations, UI uses checkboxes for event selection, backend validates array presence, and admin can view selected events as badges. Critical bug resolved where Zod `.transform()` was interfering with react-hook-form serialization; fixed by moving transform to manual `onSubmit` handler. E2E tested and confirmed working.
+
 ## User Preferences
 I prefer all interfaces and data to be in Spanish.
 I want the development to be iterative, focusing on critical features first before moving to integration with external services like Firestore.
@@ -27,6 +30,7 @@ The system employs a client-server architecture.
     -   **Birth Year Validation:** A critical component (`BirthYearValidation`) is integrated into the scoring process, requiring dual validation from players against their profiles before match confirmation.
     -   **ELO Rating System:** Implemented with a K-factor of 32, automatically updating player ratings upon match completion and storing a full history.
     -   **ATH Móvil Payment System:** Fully implemented with 5-character alphanumeric reference codes (últimos 5 del Reference Number), manual admin verification, and complete payment workflow (pending, verified, rejected). E2E tested successfully.
+    -   **Multi-Event Tournament Registration:** Players can register for multiple events within a single tournament (Singles Masculino, Singles Femenino, Dobles Mixtos, etc.). Implemented with checkbox selection, minimum one event validation, array persistence in database, and badge display in admin interface. E2E tested successfully.
     -   **Member Number Generation:** Automatic, auto-incrementing member numbers in the format `PRTTM-000123`.
     -   **API Endpoints:** Structured for `/api/tournaments`, `/api/rankings`, `/api/matches`, and payment-related operations.
 -   **System Design Choices:**
