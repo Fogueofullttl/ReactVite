@@ -37,6 +37,14 @@ The system employs a client-server architecture.
         -   **Atomic Operations:** `saveMatchResult` (árbitro), `savePlayerResult` (jugador), `approveResult`, `rejectResult` with full validation
         -   **Data Integrity:** Proper status transitions, setsCount calculation, rating change storage, and verification metadata
         -   **Seed System:** `seedFirestore.ts` for loading mock data into Firestore with proper format conversion
+        -   **Audit Trail:** Rejected results are preserved in `rejectedResult` field for auditing purposes
+    -   **Notification System (Firestore):** Complete notification system for real-time alerts to players (`client/src/lib/notifications.ts`). Features:
+        -   **Real-time Notifications:** Live notification bell in header with unread count badge
+        -   **Result Rejection Alerts:** High-priority notifications sent to both players when admin rejects a result, directing them to Mesa Técnica
+        -   **Verification Confirmations:** Normal-priority notifications sent when results are verified, showing rating changes
+        -   **Action Required Indicators:** Visual badges for notifications requiring player action
+        -   **Mark as Read:** Individual and bulk mark-as-read functionality
+        -   **Firestore Collection:** Notifications stored in `notifications` collection with userId indexing for efficient queries
     -   **Dynamic Navigation:** Sidebar uses `useAuth` hook for role-specific menus and real-time badge counters for pending matches.
     -   **Match Scoring - Dual System:** Implemented for both referees (`/arbitro/match/:matchId`) and players (`/jugador/match/:matchId`).
         -   **Referee Scoring:** Marks matches as "verified" directly.

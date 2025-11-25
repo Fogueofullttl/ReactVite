@@ -113,7 +113,7 @@ export function NotificationBell() {
                 </div>
                 {notification.data?.requiresAction && (
                   <Badge variant="destructive" className="mt-2">
-                    ⚠️ Acción Requerida
+                    Acción Requerida
                   </Badge>
                 )}
               </div>

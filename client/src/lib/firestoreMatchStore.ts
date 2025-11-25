@@ -21,15 +21,13 @@ const matchesRef = collection(db, 'matches');
  * Convierte un documento de Firestore a Match con conversión de Timestamps
  */
 function firestoreToMatch(docData: any, id: string): Match {
-  return {
-    id,
-    ...docData,
-    scheduledTime: docData.scheduledTime?.toDate ? docData.scheduledTime.toDate() : new Date(docData.scheduledTime),
-    result: docData.result ? {
-      ...docData.result,
-      enteredAt: docData.result.enteredAt?.toDate ? docData.result.enteredAt.toDate() : new Date(docData.result.enteredAt),
+  const convertResultDates = (result: any) => {
+    if (!result) return undefined;
+    return {
+      ...result,
+      enteredAt: result.enteredAt?.toDate ? result.enteredAt.toDate() : new Date(result.enteredAt),
       validatedBy: Object.fromEntries(
-        Object.entries(docData.result.validatedBy || {}).map(([key, val]: [string, any]) => [
+        Object.entries(result.validatedBy || {}).map(([key, val]: [string, any]) => [
           key,
           {
             ...val,
@@ -37,7 +35,15 @@ function firestoreToMatch(docData: any, id: string): Match {
           }
         ])
       )
-    } : undefined,
+    };
+  };
+
+  return {
+    id,
+    ...docData,
+    scheduledTime: docData.scheduledTime?.toDate ? docData.scheduledTime.toDate() : new Date(docData.scheduledTime),
+    result: convertResultDates(docData.result),
+    rejectedResult: convertResultDates(docData.rejectedResult),
     verifiedAt: docData.verifiedAt?.toDate ? docData.verifiedAt.toDate() : (docData.verifiedAt ? new Date(docData.verifiedAt) : undefined),
     rejectedAt: docData.rejectedAt?.toDate ? docData.rejectedAt.toDate() : (docData.rejectedAt ? new Date(docData.rejectedAt) : undefined),
   } as Match;
@@ -49,19 +55,18 @@ function firestoreToMatch(docData: any, id: string): Match {
 function matchToFirestore(match: Partial<Match>): any {
   const data: any = { ...match };
   
-  // Convertir Dates a Timestamps
-  if (data.scheduledTime instanceof Date) {
-    data.scheduledTime = Timestamp.fromDate(data.scheduledTime);
-  }
-  
-  if (data.result) {
-    if (data.result.enteredAt instanceof Date) {
-      data.result.enteredAt = Timestamp.fromDate(data.result.enteredAt);
+  const convertResultToTimestamps = (result: any) => {
+    if (!result) return undefined;
+    
+    const convertedResult = { ...result };
+    
+    if (convertedResult.enteredAt instanceof Date) {
+      convertedResult.enteredAt = Timestamp.fromDate(convertedResult.enteredAt);
     }
     
-    if (data.result.validatedBy) {
+    if (convertedResult.validatedBy) {
       const validatedBy: any = {};
-      for (const [key, val] of Object.entries(data.result.validatedBy)) {
+      for (const [key, val] of Object.entries(convertedResult.validatedBy)) {
         validatedBy[key] = {
           ...(val as any),
           timestamp: (val as any).timestamp instanceof Date 
@@ -69,9 +74,19 @@ function matchToFirestore(match: Partial<Match>): any {
             : (val as any).timestamp
         };
       }
-      data.result.validatedBy = validatedBy;
+      convertedResult.validatedBy = validatedBy;
     }
+    
+    return convertedResult;
+  };
+  
+  // Convertir Dates a Timestamps
+  if (data.scheduledTime instanceof Date) {
+    data.scheduledTime = Timestamp.fromDate(data.scheduledTime);
   }
+  
+  data.result = convertResultToTimestamps(data.result);
+  data.rejectedResult = convertResultToTimestamps(data.rejectedResult);
   
   if (data.verifiedAt instanceof Date) {
     data.verifiedAt = Timestamp.fromDate(data.verifiedAt);

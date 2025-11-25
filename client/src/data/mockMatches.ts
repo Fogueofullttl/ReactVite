@@ -77,6 +77,7 @@ export interface Match {
   rejectedBy?: string;
   rejectedAt?: Date;
   rejectionReason?: string;
+  rejectedResult?: MatchResult; // Preservar resultado rechazado para auditoría
 }
 
 export const mockMatches: Match[] = [

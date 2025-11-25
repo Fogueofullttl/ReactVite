@@ -43,13 +43,13 @@ export async function notifyResultRejected(
 
 Razón: ${rejectionReason}
 
-⚠️ ACCIÓN REQUERIDA: Por favor, dirígete a Mesa Técnica para ingresar el resultado correcto.`;
+ACCIÓN REQUERIDA: Por favor, dirígete a Mesa Técnica para ingresar el resultado correcto.`;
 
   // Notificar jugador 1
   await createNotification({
     userId: player1Id,
     type: 'result_rejected',
-    title: '⚠️ Resultado Rechazado - Ir a Mesa Técnica',
+    title: 'Resultado Rechazado - Ir a Mesa Técnica',
     message,
     matchId,
     read: false,
@@ -65,7 +65,7 @@ Razón: ${rejectionReason}
   await createNotification({
     userId: player2Id,
     type: 'result_rejected',
-    title: '⚠️ Resultado Rechazado - Ir a Mesa Técnica',
+    title: 'Resultado Rechazado - Ir a Mesa Técnica',
     message,
     matchId,
     read: false,
@@ -92,7 +92,7 @@ export async function notifyResultVerified(
   await createNotification({
     userId: player1Id,
     type: 'result_verified',
-    title: '✓ Resultado Verificado',
+    title: 'Resultado Verificado',
     message: `Tu resultado contra ${player2Name} fue verificado.
 
 Rating: ${ratingChanges.player1.change > 0 ? '+' : ''}${ratingChanges.player1.change} pts (${ratingChanges.player1.oldRating} → ${ratingChanges.player1.newRating})`,
@@ -107,7 +107,7 @@ Rating: ${ratingChanges.player1.change > 0 ? '+' : ''}${ratingChanges.player1.ch
   await createNotification({
     userId: player2Id,
     type: 'result_verified',
-    title: '✓ Resultado Verificado',
+    title: 'Resultado Verificado',
     message: `Tu resultado contra ${player1Name} fue verificado.
 
 Rating: ${ratingChanges.player2.change > 0 ? '+' : ''}${ratingChanges.player2.change} pts (${ratingChanges.player2.oldRating} → ${ratingChanges.player2.newRating})`,

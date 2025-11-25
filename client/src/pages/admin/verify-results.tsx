@@ -185,7 +185,7 @@ export default function AdminVerifyResults() {
         );
         
         toast({
-          title: "⚠️ Resultado Rechazado",
+          title: "Resultado Rechazado",
           description: "Los jugadores han sido notificados y deben dirigirse a Mesa Técnica para ingresar el resultado correcto.",
         });
 
