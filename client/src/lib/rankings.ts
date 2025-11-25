@@ -46,6 +46,12 @@ export async function getRankings(category: string): Promise<RankingEntry[]> {
   }
 }
 
+function getRequiredGenderForCategory(category: string): 'male' | 'female' | 'any' {
+  if (category.includes('_male')) return 'male';
+  if (category.includes('_female')) return 'female';
+  return 'any';
+}
+
 export async function recalculateRankings(tournamentType: string): Promise<void> {
   try {
     const usersSnapshot = await getDocs(collection(db, 'users'));
@@ -54,8 +60,19 @@ export async function recalculateRankings(tournamentType: string): Promise<void>
       ...doc.data()
     })) as any[];
     
+    const requiredGender = getRequiredGenderForCategory(tournamentType);
+    
     const players = users
-      .filter(u => u.role === 'jugador')
+      .filter(u => {
+        if (u.role !== 'jugador') return false;
+        
+        if (requiredGender === 'any') return true;
+        
+        const profile = u.profile || u;
+        const userGender = profile.gender;
+        
+        return userGender === requiredGender;
+      })
       .sort((a, b) => (b.profile?.rating || b.rating || 1000) - (a.profile?.rating || a.rating || 1000));
     
     const previousRankings = await getRankings(tournamentType);

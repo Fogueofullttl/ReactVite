@@ -74,6 +74,19 @@ The system employs a client-server architecture.
         -   **Admin Dashboard:** Tournament list view at `/admin/tournaments`, individual management at `/admin/tournaments/:id` with tabs for registrations, groups, and brackets. Uses TanStack Query to fetch from backend API.
         -   **Data Source:** Admin pages use backend API (`/api/tournaments`) for CRUD operations while Firestore functions in tournaments.ts are available for real-time features.
         -   **Known Limitation:** Doubles tournaments store team as string[] but draw generation currently uses first player ID as team representative. Full doubles support (both partner IDs in match) planned for future enhancement
+    -   **Rankings vs Ratings System:** Distinct separation between Top 10 rankings and complete player ratings (`client/src/lib/rankings.ts`, `client/src/lib/users.ts`). Features:
+        -   **Rankings (Top 10):** `/rankings` page shows Top 10 players per category (singles_male, singles_female, doubles_male, doubles_female, doubles_mixed)
+        -   **Ratings (Todos):** `/ratings` page shows all registered players with search functionality
+        -   **Gender-Based Filtering:** Rankings filter players by gender matching the category (e.g., singles_male only includes male players)
+        -   **Trend Tracking:** Rankings track position changes (up/down/stable/new) comparing to previous rankings
+        -   **Automatic Recalculation:** `finalizeTournament()` triggers `recalculateRankings()` after applying rating changes
+        -   **Firestore Collection:** Rankings stored in `rankings/{categoryId}` with top10 array, lastUpdated, and trend data
+        -   **Lucide Icons:** Uses Crown, Medal icons for positions instead of emojis (per user preference)
+    -   **Registration Validation:** Complete restriction validation integrated in `registerPlayer()`:
+        -   **Age Restrictions:** Validates minAge/maxAge against user's birthYear
+        -   **Gender Restrictions:** Validates user gender matches tournament requirement
+        -   **Rating Restrictions:** Validates user rating within minRating/maxRating range
+        -   **Pre-registration Check:** Validation runs before creating registration record, throwing error if requirements not met
 -   **System Design Choices:**
     -   **Modular Design:** Clear separation between `shared`, `server`, and `client` directories.
     -   **Full Firebase Integration:** Firebase Auth + Firestore for complete data persistence (users, matches). Backend uses in-memory `MemStorage` for tournaments/registrations (migration planned).
