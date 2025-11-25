@@ -22,8 +22,7 @@ const registerSchema = z.object({
   athMovilReference: z
     .string()
     .length(5, "Debe ser exactamente 5 caracteres")
-    .regex(/^[A-Z0-9]+$/, "Solo letras mayúsculas y números")
-    .transform((val) => val.toUpperCase()),
+    .regex(/^[A-Z0-9]+$/, "Solo letras mayúsculas y números"),
 });
 
 type RegisterFormData = z.infer<typeof registerSchema>;
@@ -78,7 +77,15 @@ export default function TournamentRegister() {
   });
 
   const onSubmit = (data: RegisterFormData) => {
-    registerMutation.mutate(data);
+    console.log("Form data being submitted:", data);
+    console.log("Events value:", data.events);
+    // Ensure athMovilReference is uppercase
+    const submissionData = {
+      ...data,
+      athMovilReference: data.athMovilReference.toUpperCase(),
+    };
+    console.log("Submission data:", submissionData);
+    registerMutation.mutate(submissionData);
   };
 
   if (tournamentLoading) {
@@ -260,16 +267,24 @@ export default function TournamentRegister() {
                       >
                         <Checkbox
                           data-testid={`checkbox-event-${event}`}
-                          checked={field.value?.includes(event)}
+                          checked={Array.isArray(field.value) && field.value.includes(event)}
                           onCheckedChange={(checked) => {
-                            const currentValue = field.value || [];
+                            const currentValue = Array.isArray(field.value) ? field.value : [];
                             const newValue = checked
                               ? [...currentValue, event]
                               : currentValue.filter((value) => value !== event);
+                            console.log("Checkbox changed:", event, "checked:", checked, "newValue:", newValue);
                             field.onChange(newValue);
                           }}
                         />
-                        <label className="font-normal cursor-pointer text-sm">
+                        <label className="font-normal cursor-pointer text-sm" onClick={() => {
+                          const currentValue = Array.isArray(field.value) ? field.value : [];
+                          const isChecked = currentValue.includes(event);
+                          const newValue = isChecked
+                            ? currentValue.filter((value) => value !== event)
+                            : [...currentValue, event];
+                          field.onChange(newValue);
+                        }}>
                           {event}
                         </label>
                       </div>
