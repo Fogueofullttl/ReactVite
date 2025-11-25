@@ -1,7 +1,44 @@
 import { mockMatches as initialMatches, Match, MatchStatus } from "@/data/mockMatches";
 import { calculateRatingChange } from "./ratingSystem";
 
-let matches = [...initialMatches];
+// Persist matches in localStorage
+const STORAGE_KEY = "fptm_matches";
+
+function loadMatches(): Match[] {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      // Convert date strings back to Date objects
+      return parsed.map((match: any) => ({
+        ...match,
+        scheduledTime: new Date(match.scheduledTime),
+        result: match.result ? {
+          ...match.result,
+          enteredAt: new Date(match.result.enteredAt),
+          validatedBy: Object.fromEntries(
+            Object.entries(match.result.validatedBy).map(([key, val]: [string, any]) => [
+              key,
+              { ...val, timestamp: new Date(val.timestamp) }
+            ])
+          )
+        } : undefined,
+        verifiedAt: match.verifiedAt ? new Date(match.verifiedAt) : undefined,
+        rejectedAt: match.rejectedAt ? new Date(match.rejectedAt) : undefined,
+      }));
+    } catch (e) {
+      console.error("Error loading matches from localStorage:", e);
+      return [...initialMatches];
+    }
+  }
+  return [...initialMatches];
+}
+
+function saveMatches(matches: Match[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(matches));
+}
+
+let matches = loadMatches();
 
 export const matchStore = {
   getMatches: () => matches,
@@ -12,6 +49,7 @@ export const matchStore = {
     const index = matches.findIndex(m => m.id === id);
     if (index !== -1) {
       matches[index] = { ...matches[index], ...updates };
+      saveMatches(matches);
       window.dispatchEvent(new CustomEvent("matches:updated"));
       return matches[index];
     }
@@ -167,6 +205,7 @@ export const matchStore = {
   
   reset: () => {
     matches = [...initialMatches];
+    saveMatches(matches);
     window.dispatchEvent(new CustomEvent("matches:updated"));
   }
 };
