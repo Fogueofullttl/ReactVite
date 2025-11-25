@@ -11,6 +11,7 @@ import {
   Gavel,
   LogOut,
   LogIn,
+  Star,
 } from "lucide-react";
 import {
   Sidebar,
@@ -51,13 +52,15 @@ const menuItemsByRole: Record<string, Array<{ title: string; url: string; icon: 
   publico: [
     { title: "Inicio", url: "/", icon: Home },
     { title: "Torneos", url: "/tournaments", icon: Trophy },
-    { title: "Rankings", url: "/rankings", icon: TrendingUp },
+    { title: "Rankings (Top 10)", url: "/rankings", icon: TrendingUp },
+    { title: "Ratings (Todos)", url: "/ratings", icon: Star },
   ],
   jugador: [
     { title: "Panel", url: "/dashboard", icon: Home },
     { title: "Mis Partidos", url: "/jugador/dashboard", icon: Calendar },
     { title: "Torneos", url: "/tournaments", icon: Trophy },
-    { title: "Rankings", url: "/rankings", icon: TrendingUp },
+    { title: "Rankings (Top 10)", url: "/rankings", icon: TrendingUp },
+    { title: "Ratings (Todos)", url: "/ratings", icon: Star },
     { title: "Perfil", url: "/profile", icon: User },
   ],
   arbitro: [
@@ -71,14 +74,17 @@ const menuItemsByRole: Record<string, Array<{ title: string; url: string; icon: 
     { title: "Torneos Publicos", url: "/tournaments", icon: Trophy },
     { title: "Jugadores", url: "/admin/users", icon: Users },
     { title: "Pagos", url: "/admin/registrations", icon: Medal },
-    { title: "Rankings", url: "/rankings", icon: TrendingUp },
+    { title: "Rankings (Top 10)", url: "/rankings", icon: TrendingUp },
+    { title: "Ratings (Todos)", url: "/ratings", icon: Star },
   ],
   owner: [
     { title: "Dashboard Owner", url: "/owner", icon: Home },
-    { title: "Analíticas", url: "/owner/analytics", icon: TrendingUp },
+    { title: "Analiticas", url: "/owner/analytics", icon: TrendingUp },
     { title: "Torneos", url: "/tournaments", icon: Trophy },
+    { title: "Rankings (Top 10)", url: "/rankings", icon: TrendingUp },
+    { title: "Ratings (Todos)", url: "/ratings", icon: Star },
     { title: "Usuarios", url: "/owner/users", icon: Users },
-    { title: "Configuración", url: "/owner/settings", icon: Settings },
+    { title: "Configuracion", url: "/owner/settings", icon: Settings },
   ],
 };
 

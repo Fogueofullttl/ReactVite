@@ -15,6 +15,7 @@ import Tournaments from "@/pages/tournaments";
 import TournamentDetail from "@/pages/tournament-detail";
 import TournamentRegister from "@/pages/tournament-register";
 import Rankings from "@/pages/rankings";
+import Ratings from "@/pages/ratings";
 import PlayerDashboard from "@/pages/player-dashboard";
 import Profile from "@/pages/profile";
 import Login from "@/pages/login";
@@ -45,6 +46,7 @@ function Router() {
       <Route path="/tournaments/:id/register" component={TournamentRegister} />
       <Route path="/tournaments/:id" component={TournamentDetail} />
       <Route path="/rankings" component={Rankings} />
+      <Route path="/ratings" component={Ratings} />
       <Route path="/dashboard" component={PlayerDashboard} />
       <Route path="/profile" component={Profile} />
       <Route path="/login" component={Login} />

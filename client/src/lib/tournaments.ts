@@ -14,6 +14,7 @@ import {
 import { db } from './firebase';
 import { createTournamentSchema } from './schemas/tournament';
 import { createMatch } from './firestoreMatchStore';
+import { recalculateRankings } from './rankings';
 
 export interface TournamentRestrictions {
   minAge?: number;
@@ -181,6 +182,27 @@ export async function registerPlayer(
     throw new Error('Torneo no encontrado');
   }
   
+  const data = docSnap.data();
+  const tournament = {
+    id: docSnap.id,
+    ...data,
+    date: data.date?.toDate(),
+    config: {
+      ...data.config,
+      registrationDeadline: data.config.registrationDeadline?.toDate()
+    },
+    registrations: data.registrations || [],
+    createdAt: data.createdAt?.toDate(),
+    updatedAt: data.updatedAt?.toDate()
+  } as Tournament;
+  
+  const primaryUserId = Array.isArray(userId) ? userId[0] : userId;
+  const validation = await validateRegistrationInternal(tournament, primaryUserId);
+  
+  if (!validation.valid) {
+    throw new Error(validation.reason || 'No cumples los requisitos para inscribirte');
+  }
+  
   const newRegistration = {
     userId,
     registeredAt: Timestamp.fromDate(new Date()),
@@ -193,6 +215,70 @@ export async function registerPlayer(
     registrations: arrayUnion(newRegistration),
     updatedAt: Timestamp.now()
   });
+}
+
+async function validateRegistrationInternal(
+  tournament: Tournament,
+  userId: string
+): Promise<{ valid: boolean; reason?: string }> {
+  const restrictions = tournament.config.restrictions;
+  
+  if (!restrictions) {
+    return { valid: true };
+  }
+  
+  const userDoc = await getDoc(doc(db, 'users', userId));
+  const userData = userDoc.data();
+  
+  if (!userData) {
+    return { valid: false, reason: 'Usuario no encontrado' };
+  }
+  
+  const profile = userData.profile || userData;
+  const currentYear = new Date().getFullYear();
+  const age = profile.birthYear ? currentYear - profile.birthYear : null;
+  const rating = profile.rating || 1000;
+  const userGender = profile.gender;
+  
+  if (restrictions.minAge && age !== null && age < restrictions.minAge) {
+    return { 
+      valid: false, 
+      reason: `Edad minima requerida: ${restrictions.minAge} anos. Tu edad: ${age} anos` 
+    };
+  }
+  
+  if (restrictions.maxAge && age !== null && age > restrictions.maxAge) {
+    return { 
+      valid: false, 
+      reason: `Edad maxima permitida: ${restrictions.maxAge} anos. Tu edad: ${age} anos` 
+    };
+  }
+  
+  if (restrictions.gender && restrictions.gender !== 'any') {
+    if (userGender && userGender !== restrictions.gender) {
+      const genderLabel = restrictions.gender === 'male' ? 'masculino' : 'femenino';
+      return { 
+        valid: false, 
+        reason: `Este torneo es exclusivamente ${genderLabel}` 
+      };
+    }
+  }
+  
+  if (restrictions.minRating && rating < restrictions.minRating) {
+    return { 
+      valid: false, 
+      reason: `Rating minimo requerido: ${restrictions.minRating}. Tu rating: ${rating}` 
+    };
+  }
+  
+  if (restrictions.maxRating && rating > restrictions.maxRating) {
+    return { 
+      valid: false, 
+      reason: `Rating maximo permitido: ${restrictions.maxRating}. Tu rating: ${rating}` 
+    };
+  }
+  
+  return { valid: true };
 }
 
 export async function updateTournamentStatus(
@@ -615,6 +701,13 @@ export async function finalizeTournament(tournamentId: string): Promise<{
   );
   
   await Promise.all(updatePromises);
+  
+  // Recalcular rankings despues de aplicar ratings
+  try {
+    await recalculateRankings(tournament.type);
+  } catch (error) {
+    console.error('Error recalculando rankings:', error);
+  }
   
   // Marcar torneo como completado
   await updateDoc(doc(db, 'tournaments', tournamentId), {
