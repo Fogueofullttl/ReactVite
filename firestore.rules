@@ -1,0 +1,121 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isOwner() {
+      return isSignedIn() && getUserRole() == 'owner';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (getUserRole() == 'admin' || getUserRole() == 'owner');
+    }
+
+    function isArbitro() {
+      return isSignedIn() && (getUserRole() == 'arbitro' || isAdmin());
+    }
+
+    function isJugador() {
+      return isSignedIn() && getUserRole() == 'jugador';
+    }
+
+    function isResourceOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Anyone can read user profiles (for rankings, match displays, etc.)
+      allow read: if true;
+
+      // Only authenticated users can create their own profile during registration
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.firebaseUid;
+
+      // Users can update their own profile, admins can update any profile
+      allow update: if isResourceOwner(resource.data.firebaseUid) || isAdmin();
+
+      // Only owners can delete users
+      allow delete: if isOwner();
+    }
+
+    // Tournaments collection
+    match /tournaments/{tournamentId} {
+      // Anyone can read tournaments (public information)
+      allow read: if true;
+
+      // Only admins can create tournaments
+      allow create: if isAdmin();
+
+      // Only admins can update or delete tournaments
+      allow update, delete: if isAdmin();
+    }
+
+    // Registrations collection
+    match /registrations/{registrationId} {
+      // Players can read their own registrations, admins can read all
+      allow read: if isResourceOwner(resource.data.playerId) || isAdmin();
+
+      // Authenticated players can register for tournaments
+      allow create: if isSignedIn() && request.resource.data.playerId == request.auth.uid;
+
+      // Admins can verify payments (update paymentStatus, verifiedBy, verifiedAt)
+      // Players can update their own pending registrations
+      allow update: if isAdmin() ||
+                       (isResourceOwner(resource.data.playerId) &&
+                        resource.data.paymentStatus == 'pending');
+
+      // Only admins can delete registrations
+      allow delete: if isAdmin();
+    }
+
+    // Matches collection
+    match /matches/{matchId} {
+      // Anyone can read matches (for brackets, results, etc.)
+      allow read: if true;
+
+      // Only admins can create matches
+      allow create: if isAdmin();
+
+      // Arbitros, admins, and match participants can update matches
+      // (for scoring, validation, etc.)
+      allow update: if isArbitro() ||
+                       isResourceOwner(resource.data.player1Id) ||
+                       isResourceOwner(resource.data.player2Id);
+
+      // Only admins can delete matches
+      allow delete: if isAdmin();
+    }
+
+    // Rating History collection
+    match /ratingHistory/{historyId} {
+      // Players can read their own rating history, others can read too (for transparency)
+      allow read: if true;
+
+      // Only the system (via Admin SDK) should create rating history
+      // No client-side creates allowed
+      allow create: if false;
+
+      // No updates or deletes allowed (immutable history)
+      allow update, delete: if false;
+    }
+
+    // Counters collection (for generating member numbers)
+    match /counters/{counterId} {
+      // Only the system (via Admin SDK) should access counters
+      allow read, write: if false;
+    }
+
+    // Default deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

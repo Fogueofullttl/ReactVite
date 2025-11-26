@@ -39,49 +39,49 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const success = await login(email, password);
+      const result = await login(email, password);
 
-      if (success) {
+      if (result.success && user) {
         toast({
           title: "¡Bienvenido!",
           description: "Has iniciado sesión exitosamente",
         });
 
-        // Redirigir según el rol del usuario (obtenido de Firestore)
-        // Esperar un momento para que el estado de user se actualice
-        setTimeout(() => {
-          const role = localStorage.getItem('fptm_role');
-          
-          if (role === "arbitro") {
-            setLocation("/arbitro/dashboard");
-          } else if (role === "admin") {
-            setLocation("/admin/registrations");
-          } else if (role === "owner") {
-            setLocation("/owner");
-          } else if (role === "jugador") {
-            setLocation("/");
-          } else {
-            setLocation("/");
-          }
-        }, 500);
+        // Redirect based on user role
+        const redirectPath = getRoleBasedPath(user.role);
+        setLocation(redirectPath);
       } else {
         toast({
           title: "Error",
-          description: "Email o contraseña incorrectos",
+          description: result.error || "Email o contraseña incorrectos",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error("Error en login:", error);
       toast({
         title: "Error",
-        description: "Ocurrió un error al iniciar sesión",
+        description: error instanceof Error ? error.message : "Ocurrió un error al iniciar sesión",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
+
+  function getRoleBasedPath(role: string): string {
+    switch (role) {
+      case "arbitro":
+        return "/arbitro/dashboard";
+      case "admin":
+        return "/admin/registrations";
+      case "owner":
+        return "/owner";
+      case "jugador":
+        return "/";
+      default:
+        return "/";
+    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 p-4">
