@@ -1,1 +1,25 @@
-
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": null,
+  "installCommand": "npm install",
+  "devCommand": "npm run dev",
+  "env": {
+    "VITE_FIREBASE_API_KEY": "@vite_firebase_api_key",
+    "VITE_FIREBASE_PROJECT_ID": "@vite_firebase_project_id",
+    "VITE_FIREBASE_APP_ID": "@vite_firebase_app_id",
+    "FIREBASE_ADMIN_CREDENTIALS": "@firebase_admin_credentials",
+    "NODE_ENV": "production"
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
