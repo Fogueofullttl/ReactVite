@@ -9,6 +9,7 @@ import express, {
 
 import { registerRoutes } from "./routes";
 import { seedData } from "./seed-data";
+import { initializeFirebaseAdmin } from "./firebaseAdmin";
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -68,8 +69,17 @@ app.use((req, res, next) => {
 export default async function runApp(
   setup: (app: Express, server: Server) => Promise<void>,
 ) {
+  // Initialize Firebase Admin SDK
+  try {
+    initializeFirebaseAdmin();
+    log("Firebase Admin SDK initialized successfully");
+  } catch (error) {
+    log(`Warning: Firebase Admin SDK initialization failed: ${error}`);
+    log("Server will continue but database operations will fail");
+  }
+
   const server = await registerRoutes(app);
-  
+
   // Seed initial data in development
   if (process.env.NODE_ENV === "development") {
     await seedData();

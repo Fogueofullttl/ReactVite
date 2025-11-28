@@ -7,6 +7,33 @@ import {
   insertTournamentRegistrationSchema,
   insertMatchSchema,
 } from "@shared/schema";
+import { ZodError } from "zod";
+import { log } from "./app";
+
+// Error handling helper
+function handleError(error: unknown, defaultMessage: string): { status: number; message: string; details?: unknown } {
+  if (error instanceof ZodError) {
+    return {
+      status: 400,
+      message: "Validation error",
+      details: error.errors
+    };
+  }
+
+  if (error instanceof Error) {
+    log(`Error: ${error.message}`, "routes");
+    return {
+      status: 500,
+      message: error.message || defaultMessage
+    };
+  }
+
+  log(`Unknown error: ${String(error)}`, "routes");
+  return {
+    status: 500,
+    message: defaultMessage
+  };
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check
@@ -32,11 +59,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validated = insertUserSchema.parse(req.body);
       const user = await storage.createUser(validated);
       res.status(201).json(user);
-    } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Validation error", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to create user" });
+    } catch (error) {
+      const { status, message, details } = handleError(error, "Failed to create user");
+      res.status(status).json({ error: message, details });
     }
   });
 
@@ -88,11 +113,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validated = insertTournamentSchema.parse(req.body);
       const tournament = await storage.createTournament(validated);
       res.status(201).json(tournament);
-    } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Validation error", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to create tournament" });
+    } catch (error) {
+      const { status, message, details } = handleError(error, "Failed to create tournament");
+      res.status(status).json({ error: message, details });
     }
   });
 
@@ -120,11 +143,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validated = insertTournamentRegistrationSchema.parse(req.body);
       const registration = await storage.createRegistration(validated);
       res.status(201).json(registration);
-    } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Validation error", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to create registration" });
+    } catch (error) {
+      const { status, message, details } = handleError(error, "Failed to create registration");
+      res.status(status).json({ error: message, details });
     }
   });
 
@@ -140,37 +161,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register to tournament (convenience endpoint)
   app.post("/api/tournaments/:id/register", async (req, res) => {
     try {
-      // TODO: Get playerId from auth session instead of request body
-      // For now, accept playerId in request body for testing
       const playerId = req.body.playerId;
-      
+
       if (!playerId) {
         return res.status(400).json({ error: "playerId is required" });
       }
-      
-      // Validar que events exista
+
       if (!req.body.events || !Array.isArray(req.body.events)) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: "Events is required and must be an array",
           received: req.body.events
         });
       }
-      
+
       const validated = insertTournamentRegistrationSchema.parse({
         tournamentId: req.params.id,
         playerId: playerId,
-        partnerId: req.body.partnerId || null,
+        partnerId: req.body.partnerId,
         events: req.body.events,
         athMovilReference: req.body.athMovilReference,
       });
-      
+
       const registration = await storage.createRegistration(validated);
       res.status(201).json(registration);
-    } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Validation error", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to register to tournament" });
+    } catch (error) {
+      const { status, message, details } = handleError(error, "Failed to register to tournament");
+      res.status(status).json({ error: message, details });
     }
   });
 
@@ -208,18 +224,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Verify/reject registration payment
   app.patch("/api/registrations/:id/verify", async (req, res) => {
     try {
-      const { status, rejectionReason } = req.body;
-      
+      const { status, rejectionReason, adminId } = req.body;
+
       if (!["verified", "rejected"].includes(status)) {
         return res.status(400).json({ error: "Status must be 'verified' or 'rejected'" });
       }
 
-      // Mock admin user ID - will be replaced with real auth
-      const mockAdminId = "2"; // TODO: Get from auth session
-      
-      const updates: any = {
+      if (!adminId) {
+        return res.status(400).json({ error: "adminId is required" });
+      }
+
+      const updates: {
+        paymentStatus: "verified" | "rejected";
+        verifiedBy: string;
+        verifiedAt: string;
+        rejectionReason?: string;
+      } = {
         paymentStatus: status,
-        verifiedBy: mockAdminId,
+        verifiedBy: adminId,
         verifiedAt: new Date().toISOString(),
       };
 
@@ -230,7 +252,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateRegistration(req.params.id, updates);
       res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ error: "Failed to verify registration" });
+      const { status: errorStatus, message } = handleError(error, "Failed to verify registration");
+      res.status(errorStatus).json({ error: message });
     }
   });
 
@@ -314,7 +337,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Match not found" });
       }
 
-      const { sets, winnerId, player1Score, player2Score, observations } = req.body;
+      const { winnerId, player1Score, player2Score } = req.body;
+
+      if (!winnerId || player1Score === undefined || player2Score === undefined) {
+        return res.status(400).json({ error: "winnerId, player1Score, and player2Score are required" });
+      }
 
       // Update match with result
       const updates = {
@@ -329,9 +356,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateMatchAndRatings(req.params.id, updates, match);
 
       res.json({ success: true });
-    } catch (error: any) {
-      console.error("Error submitting match result:", error);
-      res.status(500).json({ error: error.message || "Failed to submit match result" });
+    } catch (error) {
+      const { status, message } = handleError(error, "Failed to submit match result");
+      res.status(status).json({ error: message });
     }
   });
 
@@ -340,11 +367,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validated = insertMatchSchema.parse(req.body);
       const match = await storage.createMatch(validated);
       res.status(201).json(match);
-    } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).json({ error: "Validation error", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to create match" });
+    } catch (error) {
+      const { status, message, details } = handleError(error, "Failed to create match");
+      res.status(status).json({ error: message, details });
     }
   });
 

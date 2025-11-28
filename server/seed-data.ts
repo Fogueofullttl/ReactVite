@@ -1,7 +1,16 @@
 import { storage } from "./storage";
+import { log } from "./app";
 
 export async function seedData() {
-  console.log("Iniciando carga de datos de ejemplo...");
+  try {
+    // Check if seed data already exists
+    const existingTournaments = await storage.getAllTournaments();
+    if (existingTournaments.length > 0) {
+      log("Seed data already exists, skipping", "seed");
+      return;
+    }
+
+    log("Seeding development data...", "seed");
 
   // Create sample users (players)
   const users = await Promise.all([
@@ -180,6 +189,12 @@ export async function seedData() {
     }),
   ]);
 
-  console.log("¡Base de datos cargada exitosamente!");
-  console.log(`Creados ${users.length} usuarios, ${tournaments.length} torneos, ${matches.length} partidos, y ${registrations.length} registros`);
+    log(`✓ Seed data created successfully:`, "seed");
+    log(`  - ${users.length} users`, "seed");
+    log(`  - ${tournaments.length} tournaments`, "seed");
+    log(`  - ${matches.length} matches`, "seed");
+    log(`  - ${registrations.length} registrations`, "seed");
+  } catch (error) {
+    log(`Error seeding data: ${error instanceof Error ? error.message : String(error)}`, "seed");
+  }
 }

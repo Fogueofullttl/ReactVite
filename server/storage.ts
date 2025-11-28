@@ -10,7 +10,8 @@ import type {
   RatingHistory,
   InsertRatingHistory,
 } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { getFirestore } from "./firebaseAdmin";
+import type { Firestore } from "firebase-admin/firestore";
 
 export interface IStorage {
   // User operations
@@ -52,269 +53,327 @@ export interface IStorage {
   generateTournamentDraw(tournamentId: string): Promise<Match[]>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private tournaments: Map<string, Tournament>;
-  private registrations: Map<string, TournamentRegistration>;
-  private matches: Map<string, Match>;
-  private ratingHistory: Map<string, RatingHistory>;
-  private memberNumberCounter: number;
+/**
+ * Firestore-based storage implementation
+ * Collections: users, tournaments, registrations, matches, ratingHistory, counters
+ */
+export class FirestoreStorage implements IStorage {
+  private db: Firestore;
 
   constructor() {
-    this.users = new Map();
-    this.tournaments = new Map();
-    this.registrations = new Map();
-    this.matches = new Map();
-    this.ratingHistory = new Map();
-    this.memberNumberCounter = 1;
+    this.db = getFirestore();
   }
 
-  // User operations
+  // ============================================================================
+  // USER OPERATIONS
+  // ============================================================================
+
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const doc = await this.db.collection("users").doc(id).get();
+    return doc.exists ? { id: doc.id, ...doc.data() } as User : undefined;
   }
 
   async getUserByFirebaseUid(firebaseUid: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.firebaseUid === firebaseUid
-    );
+    const snapshot = await this.db.collection("users")
+      .where("firebaseUid", "==", firebaseUid)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return undefined;
+    }
+
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as User;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
     const memberNumber = await this.generateMemberNumber();
     const now = new Date().toISOString();
-    
-    const user: User = {
+
+    const userData: Omit<User, "id"> = {
       ...insertUser,
-      id,
       memberNumber,
       rating: 1000,
       createdAt: now,
       updatedAt: now,
     };
-    
-    this.users.set(id, user);
-    return user;
+
+    const docRef = await this.db.collection("users").add(userData);
+    return { id: docRef.id, ...userData };
   }
 
   async updateUser(id: string, updates: Partial<User>): Promise<void> {
-    const user = this.users.get(id);
-    if (user) {
-      this.users.set(id, { ...user, ...updates, updatedAt: new Date().toISOString() });
-    }
+    await this.db.collection("users").doc(id).update({
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    });
   }
 
-  // Tournament operations
+  // ============================================================================
+  // TOURNAMENT OPERATIONS
+  // ============================================================================
+
   async getTournament(id: string): Promise<Tournament | undefined> {
-    return this.tournaments.get(id);
+    const doc = await this.db.collection("tournaments").doc(id).get();
+    return doc.exists ? { id: doc.id, ...doc.data() } as Tournament : undefined;
   }
 
   async getAllTournaments(): Promise<Tournament[]> {
-    return Array.from(this.tournaments.values());
+    const snapshot = await this.db.collection("tournaments").get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tournament));
   }
 
   async createTournament(insertTournament: InsertTournament): Promise<Tournament> {
-    const id = randomUUID();
     const now = new Date().toISOString();
-    
-    const tournament: Tournament = {
+
+    const tournamentData: Omit<Tournament, "id"> = {
       ...insertTournament,
-      id,
       createdAt: now,
       updatedAt: now,
     };
-    
-    this.tournaments.set(id, tournament);
-    return tournament;
+
+    const docRef = await this.db.collection("tournaments").add(tournamentData);
+    return { id: docRef.id, ...tournamentData };
   }
 
   async updateTournament(id: string, updates: Partial<Tournament>): Promise<void> {
-    const tournament = this.tournaments.get(id);
-    if (tournament) {
-      this.tournaments.set(id, { ...tournament, ...updates, updatedAt: new Date().toISOString() });
-    }
+    await this.db.collection("tournaments").doc(id).update({
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    });
   }
 
-  // Registration operations
+  // ============================================================================
+  // REGISTRATION OPERATIONS
+  // ============================================================================
+
   async getRegistration(id: string): Promise<TournamentRegistration | undefined> {
-    return this.registrations.get(id);
+    const doc = await this.db.collection("registrations").doc(id).get();
+    return doc.exists ? { id: doc.id, ...doc.data() } as TournamentRegistration : undefined;
   }
 
   async getAllRegistrations(): Promise<TournamentRegistration[]> {
-    return Array.from(this.registrations.values());
+    const snapshot = await this.db.collection("registrations").get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TournamentRegistration));
   }
 
   async getTournamentRegistrations(tournamentId: string): Promise<TournamentRegistration[]> {
-    return Array.from(this.registrations.values()).filter(
-      (reg) => reg.tournamentId === tournamentId
-    );
+    const snapshot = await this.db.collection("registrations")
+      .where("tournamentId", "==", tournamentId)
+      .get();
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TournamentRegistration));
   }
 
   async createRegistration(insertRegistration: InsertTournamentRegistration): Promise<TournamentRegistration> {
-    const id = randomUUID();
     const now = new Date().toISOString();
-    
-    const registration: TournamentRegistration = {
+
+    const registrationData: Omit<TournamentRegistration, "id"> = {
       ...insertRegistration,
-      id,
-      paymentStatus: "pending",
-      verifiedBy: null,
-      verifiedAt: null,
-      rejectionReason: null,
+      paymentStatus: insertRegistration.paymentStatus || "pending",
       registeredAt: now,
     };
-    
-    this.registrations.set(id, registration);
-    return registration;
+
+    const docRef = await this.db.collection("registrations").add(registrationData);
+    return { id: docRef.id, ...registrationData };
   }
 
   async updateRegistration(id: string, updates: Partial<TournamentRegistration>): Promise<void> {
-    const registration = this.registrations.get(id);
-    if (registration) {
-      this.registrations.set(id, { ...registration, ...updates });
-    }
+    await this.db.collection("registrations").doc(id).update(updates);
   }
 
-  // Match operations
+  // ============================================================================
+  // MATCH OPERATIONS
+  // ============================================================================
+
   async getMatch(id: string): Promise<Match | undefined> {
-    return this.matches.get(id);
+    const doc = await this.db.collection("matches").doc(id).get();
+    return doc.exists ? { id: doc.id, ...doc.data() } as Match : undefined;
   }
 
   async getTournamentMatches(tournamentId: string): Promise<Match[]> {
-    return Array.from(this.matches.values())
-      .filter((match) => match.tournamentId === tournamentId)
-      .sort((a, b) => {
-        if (a.roundNumber !== b.roundNumber) {
-          return a.roundNumber - b.roundNumber;
-        }
-        return a.matchNumber - b.matchNumber;
-      });
+    const snapshot = await this.db.collection("matches")
+      .where("tournamentId", "==", tournamentId)
+      .orderBy("roundNumber")
+      .orderBy("matchNumber")
+      .get();
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Match));
   }
 
   async getAllMatches(): Promise<Match[]> {
-    return Array.from(this.matches.values());
+    const snapshot = await this.db.collection("matches").get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Match));
   }
 
   async createMatch(insertMatch: InsertMatch): Promise<Match> {
-    const id = randomUUID();
     const now = new Date().toISOString();
-    
-    const match: Match = {
+
+    const matchData: Omit<Match, "id"> = {
       ...insertMatch,
-      id,
+      player1Validated: insertMatch.player1Validated ?? false,
+      player2Validated: insertMatch.player2Validated ?? false,
+      status: insertMatch.status || "pending",
       createdAt: now,
       updatedAt: now,
     };
-    
-    this.matches.set(id, match);
-    return match;
+
+    const docRef = await this.db.collection("matches").add(matchData);
+    return { id: docRef.id, ...matchData };
   }
 
   async updateMatch(id: string, updates: Partial<Match>): Promise<void> {
-    const match = this.matches.get(id);
-    if (match) {
-      this.matches.set(id, { ...match, ...updates, updatedAt: new Date().toISOString() });
-    }
+    await this.db.collection("matches").doc(id).update({
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   async updateMatchAndRatings(matchId: string, updates: Partial<Match>, match: Match): Promise<void> {
-    // Update match
-    await this.updateMatch(matchId, updates);
+    // Start a Firestore transaction for atomic updates
+    await this.db.runTransaction(async (transaction) => {
+      // Update match
+      const matchRef = this.db.collection("matches").doc(matchId);
+      transaction.update(matchRef, {
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      });
 
-    // Calculate rating changes (simple ELO-like system)
-    if (match.player1Id && match.player2Id && updates.winnerId) {
-      const player1 = await this.getUser(match.player1Id);
-      const player2 = await this.getUser(match.player2Id);
+      // Calculate rating changes (ELO system)
+      if (match.player1Id && match.player2Id && updates.winnerId) {
+        const player1Doc = await transaction.get(this.db.collection("users").doc(match.player1Id));
+        const player2Doc = await transaction.get(this.db.collection("users").doc(match.player2Id));
 
-      if (player1 && player2) {
-        const K = 32; // K-factor
-        const player1Won = updates.winnerId === match.player1Id;
+        if (player1Doc.exists && player2Doc.exists) {
+          const player1 = { id: player1Doc.id, ...player1Doc.data() } as User;
+          const player2 = { id: player2Doc.id, ...player2Doc.data() } as User;
 
-        // Expected scores
-        const expectedPlayer1 = 1 / (1 + Math.pow(10, (player2.rating - player1.rating) / 400));
-        const expectedPlayer2 = 1 - expectedPlayer1;
+          const K = 32; // K-factor
+          const player1Won = updates.winnerId === match.player1Id;
 
-        // Actual scores
-        const actualPlayer1 = player1Won ? 1 : 0;
-        const actualPlayer2 = player1Won ? 0 : 1;
+          // Expected scores
+          const expectedPlayer1 = 1 / (1 + Math.pow(10, (player2.rating - player1.rating) / 400));
+          const expectedPlayer2 = 1 - expectedPlayer1;
 
-        // Rating changes
-        const player1Change = Math.round(K * (actualPlayer1 - expectedPlayer1));
-        const player2Change = Math.round(K * (actualPlayer2 - expectedPlayer2));
+          // Actual scores
+          const actualPlayer1 = player1Won ? 1 : 0;
+          const actualPlayer2 = player1Won ? 0 : 1;
 
-        // Update ratings
-        const newPlayer1Rating = player1.rating + player1Change;
-        const newPlayer2Rating = player2.rating + player2Change;
+          // Rating changes
+          const player1Change = Math.round(K * (actualPlayer1 - expectedPlayer1));
+          const player2Change = Math.round(K * (actualPlayer2 - expectedPlayer2));
 
-        await this.updateUser(match.player1Id, { rating: newPlayer1Rating });
-        await this.updateUser(match.player2Id, { rating: newPlayer2Rating });
+          // Update ratings
+          const newPlayer1Rating = player1.rating + player1Change;
+          const newPlayer2Rating = player2.rating + player2Change;
 
-        // Record rating history
-        await this.createRatingHistory({
-          playerId: match.player1Id,
-          matchId: matchId,
-          previousRating: player1.rating,
-          newRating: newPlayer1Rating,
-          ratingChange: player1Change,
-        });
+          transaction.update(this.db.collection("users").doc(match.player1Id), {
+            rating: newPlayer1Rating,
+            updatedAt: new Date().toISOString(),
+          });
 
-        await this.createRatingHistory({
-          playerId: match.player2Id,
-          matchId: matchId,
-          previousRating: player2.rating,
-          newRating: newPlayer2Rating,
-          ratingChange: player2Change,
-        });
+          transaction.update(this.db.collection("users").doc(match.player2Id), {
+            rating: newPlayer2Rating,
+            updatedAt: new Date().toISOString(),
+          });
+
+          // Record rating history
+          const now = new Date().toISOString();
+
+          transaction.set(this.db.collection("ratingHistory").doc(), {
+            playerId: match.player1Id,
+            matchId: matchId,
+            previousRating: player1.rating,
+            newRating: newPlayer1Rating,
+            ratingChange: player1Change,
+            createdAt: now,
+          });
+
+          transaction.set(this.db.collection("ratingHistory").doc(), {
+            playerId: match.player2Id,
+            matchId: matchId,
+            previousRating: player2.rating,
+            newRating: newPlayer2Rating,
+            ratingChange: player2Change,
+            createdAt: now,
+          });
+        }
       }
-    }
+    });
   }
 
-  // Rating operations
+  // ============================================================================
+  // RATING OPERATIONS
+  // ============================================================================
+
   async getPlayerRatingHistory(playerId: string): Promise<RatingHistory[]> {
-    return Array.from(this.ratingHistory.values())
-      .filter((history) => history.playerId === playerId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 50);
+    const snapshot = await this.db.collection("ratingHistory")
+      .where("playerId", "==", playerId)
+      .orderBy("createdAt", "desc")
+      .limit(50)
+      .get();
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RatingHistory));
   }
 
   async createRatingHistory(insertHistory: InsertRatingHistory): Promise<RatingHistory> {
-    const id = randomUUID();
     const now = new Date().toISOString();
-    
-    const history: RatingHistory = {
+
+    const historyData: Omit<RatingHistory, "id"> = {
       ...insertHistory,
-      id,
       createdAt: now,
     };
-    
-    this.ratingHistory.set(id, history);
-    return history;
+
+    const docRef = await this.db.collection("ratingHistory").add(historyData);
+    return { id: docRef.id, ...historyData };
   }
 
-  // Rankings
+  // ============================================================================
+  // RANKINGS
+  // ============================================================================
+
   async getTopPlayers(limit: number = 100): Promise<User[]> {
-    return Array.from(this.users.values())
-      .filter((user) => user.role === "jugador")
-      .sort((a, b) => b.rating - a.rating)
-      .slice(0, limit);
+    const snapshot = await this.db.collection("users")
+      .where("role", "==", "jugador")
+      .orderBy("rating", "desc")
+      .limit(limit)
+      .get();
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
   }
 
-  // Utility
+  // ============================================================================
+  // UTILITY
+  // ============================================================================
+
   async generateMemberNumber(): Promise<string> {
-    const number = this.memberNumberCounter++;
-    return `PRTTM-${number.toString().padStart(6, "0")}`;
+    const counterRef = this.db.collection("counters").doc("memberNumber");
+
+    const newNumber = await this.db.runTransaction(async (transaction) => {
+      const doc = await transaction.get(counterRef);
+
+      let currentNumber = 1;
+      if (doc.exists) {
+        currentNumber = (doc.data()?.value || 0) + 1;
+      }
+
+      transaction.set(counterRef, { value: currentNumber });
+      return currentNumber;
+    });
+
+    return `PRTTM-${newNumber.toString().padStart(6, "0")}`;
   }
 
   async generateTournamentDraw(tournamentId: string): Promise<Match[]> {
     const registrations = await this.getTournamentRegistrations(tournamentId);
     const tournament = await this.getTournament(tournamentId);
-    
+
     if (!tournament) {
       throw new Error("Tournament not found");
     }
 
-    // Get all registered players
+    // Get all registered players with verified payment
     const playerIds = registrations
       .filter((reg) => reg.paymentStatus === "verified")
       .map((reg) => reg.playerId);
@@ -331,17 +390,9 @@ export class MemStorage implements IStorage {
         tournamentId,
         roundNumber: 1,
         matchNumber: i + 1,
-        player1Id: shuffled[i * 2] || null,
-        player2Id: shuffled[i * 2 + 1] || null,
-        player1PartnerId: null,
-        player2PartnerId: null,
-        player1Score: null,
-        player2Score: null,
-        winnerId: null,
+        player1Id: shuffled[i * 2],
+        player2Id: shuffled[i * 2 + 1],
         status: "pending",
-        scheduledAt: null,
-        completedAt: null,
-        refereeId: null,
         player1Validated: false,
         player2Validated: false,
       });
@@ -352,4 +403,5 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Export singleton instance
+export const storage = new FirestoreStorage();
