@@ -4,12 +4,12 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBpcoGM3bQ9r7tfCUEqL_yhM0HUf3LHzt0",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "fptm---sistema-de-torneos.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "fptm---sistema-de-torneos",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "fptm---sistema-de-torneos.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "412990537514",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:412990537514:web:ee9c4fa63a1126dea12e10",
 };
 
 // Debug: Log config in development (remove in production)
