@@ -159,6 +159,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User login endpoint (uses Firebase REST API)
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      // Validation
+      if (!email || !password) {
+        return res.status(400).json({
+          error: "Missing required fields: email, password"
+        });
+      }
+
+      // Use Firebase REST API to verify credentials
+      // This doesn't require API key restrictions
+      const firebaseApiKey = process.env.VITE_FIREBASE_API_KEY || "AIzaSyBpcoGM3bQ9r7tfCUEqL_yhM0HUf3LHzt0";
+
+      const response = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            password,
+            returnSecureToken: true,
+          }),
+        }
+      );
+
+      const authData = await response.json();
+
+      if (!response.ok) {
+        log(`Login failed for ${email}: ${authData.error?.message}`, "auth");
+        return res.status(401).json({
+          error: authData.error?.message === 'EMAIL_NOT_FOUND' || authData.error?.message === 'INVALID_PASSWORD'
+            ? "Email o contraseña incorrectos"
+            : "Error al iniciar sesión"
+        });
+      }
+
+      // Get user profile from Firestore
+      const firestore = getFirestore();
+      const userDoc = await firestore.collection('users').doc(authData.localId).get();
+
+      if (!userDoc.exists) {
+        return res.status(404).json({
+          error: "Perfil de usuario no encontrado"
+        });
+      }
+
+      const userProfile = userDoc.data();
+
+      log(`User logged in: ${email}`, "auth");
+
+      res.json({
+        success: true,
+        user: {
+          uid: authData.localId,
+          firebaseUid: authData.localId,
+          email: userProfile?.email,
+          name: userProfile?.displayName,
+          role: userProfile?.role,
+          memberNumber: userProfile?.memberNumber,
+          birthYear: userProfile?.birthYear,
+          rating: userProfile?.rating,
+          photoURL: userProfile?.photoURL,
+        },
+        // Include the ID token for client-side session management
+        idToken: authData.idToken,
+        refreshToken: authData.refreshToken,
+        expiresIn: authData.expiresIn,
+      });
+    } catch (error: any) {
+      log(`Login error: ${error.message}`, "auth");
+      const { status, message } = handleError(error, "Failed to login");
+      res.status(status).json({ error: message });
+    }
+  });
+
   // User routes
   app.get("/api/users/:id", async (req, res) => {
     try {

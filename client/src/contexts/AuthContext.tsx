@@ -1,13 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { auth } from '@/lib/firebase';
-import {
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  onAuthStateChanged,
-  User as FirebaseUser
-} from 'firebase/auth';
-import { getUserProfile } from '@/lib/firebaseHelpers';
-import type { User, UserRole } from '@shared/schema';
+import type { UserRole } from '@shared/schema';
 
 export interface AppUser {
   id: string;
@@ -23,7 +15,6 @@ export interface AppUser {
 
 interface AuthContextType {
   user: AppUser | null;
-  firebaseUser: FirebaseUser | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
@@ -41,81 +32,59 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Listen for authentication state changes
+  // Restore session from sessionStorage on mount
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
-      setFirebaseUser(fbUser);
+    const authToken = sessionStorage.getItem('authToken');
 
-      if (fbUser) {
-        try {
-          // Get user profile from Firestore
-          const userProfile = await getUserProfile(fbUser.uid);
-
-          if (userProfile) {
-            const appUser: AppUser = {
-              id: userProfile.uid,
-              firebaseUid: fbUser.uid,
-              email: userProfile.email,
-              name: userProfile.displayName,
-              role: userProfile.role,
-              memberNumber: userProfile.memberNumber,
-              birthYear: userProfile.birthYear,
-              rating: userProfile.rating,
-              photoURL: userProfile.photoURL,
-            };
-
-            setUser(appUser);
-          } else {
-            // Profile not found - user needs to complete registration
-            setUser(null);
-            throw new AuthError("User profile not found in database");
-          }
-        } catch (error) {
-          setUser(null);
-          throw error;
-        }
-      } else {
-        // User not authenticated
-        setUser(null);
-      }
-
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
+    // For now, we just mark as not loading
+    // In a full implementation, you'd verify the token with the server
+    // and restore the user state
+    setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // Call server-side login endpoint
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-      // Get user profile from Firestore
-      const userProfile = await getUserProfile(userCredential.user.uid);
+      const data = await response.json();
 
-      if (!userProfile) {
-        await firebaseSignOut(auth);
+      if (!response.ok) {
         return {
           success: false,
-          error: "User profile not found. Please contact support."
+          error: data.error || "Failed to sign in"
         };
       }
 
+      // Create app user from response
       const appUser: AppUser = {
-        id: userProfile.uid,
-        firebaseUid: userCredential.user.uid,
-        email: userProfile.email,
-        name: userProfile.displayName,
-        role: userProfile.role,
-        memberNumber: userProfile.memberNumber,
-        birthYear: userProfile.birthYear,
-        rating: userProfile.rating,
-        photoURL: userProfile.photoURL,
+        id: data.user.uid,
+        firebaseUid: data.user.firebaseUid,
+        email: data.user.email,
+        name: data.user.name,
+        role: data.user.role,
+        memberNumber: data.user.memberNumber,
+        birthYear: data.user.birthYear,
+        rating: data.user.rating,
+        photoURL: data.user.photoURL,
       };
 
       setUser(appUser);
+
+      // Store tokens in sessionStorage for session persistence
+      if (data.idToken) {
+        sessionStorage.setItem('authToken', data.idToken);
+        sessionStorage.setItem('refreshToken', data.refreshToken);
+      }
+
       return { success: true };
     } catch (error) {
       if (error instanceof Error) {
@@ -130,9 +99,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async (): Promise<void> => {
     try {
-      await firebaseSignOut(auth);
+      // Clear session storage
+      sessionStorage.removeItem('authToken');
+      sessionStorage.removeItem('refreshToken');
+
       setUser(null);
-      setFirebaseUser(null);
     } catch (error) {
       if (error instanceof Error) {
         throw new AuthError(`Failed to sign out: ${error.message}`);
@@ -144,7 +115,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user,
-      firebaseUser,
       login,
       logout,
       isAuthenticated: !!user,
