@@ -42,6 +42,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
+  // Firebase Admin health check
+  app.get("/api/health/firebase", (req, res) => {
+    try {
+      const auth = getAuth();
+      const firestore = getFirestore();
+      res.json({
+        status: "ok",
+        firebaseAdmin: {
+          auth: !!auth,
+          firestore: !!firestore,
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        status: "error",
+        message: error.message,
+        firebaseAdmin: false
+      });
+    }
+  });
+
   // User registration endpoint (uses Firebase Admin SDK)
   app.post("/api/auth/register", async (req, res) => {
     try {
