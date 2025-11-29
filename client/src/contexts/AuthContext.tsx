@@ -80,9 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(appUser);
 
       // Store tokens in sessionStorage for session persistence
-      if (data.idToken) {
-        sessionStorage.setItem('authToken', data.idToken);
-        sessionStorage.setItem('refreshToken', data.refreshToken);
+      if (data.customToken) {
+        sessionStorage.setItem('authToken', data.customToken);
       }
 
       return { success: true };
@@ -101,7 +100,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Clear session storage
       sessionStorage.removeItem('authToken');
-      sessionStorage.removeItem('refreshToken');
 
       setUser(null);
     } catch (error) {
