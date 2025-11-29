@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index-dev.ts",
-    "build": "vite build && esbuild server/index-prod.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/index.js",
+    "build": "echo '===== Starting Vite build =====' && vite build && echo '===== Vite build complete =====' && esbuild server/index-prod.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/index.js && echo '===== Build finished ====='",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "test": "vitest",
