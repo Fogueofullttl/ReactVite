@@ -1,40 +1,31 @@
-import { type Server } from "node:http";
-import express, { type Express } from "express";
+import { app } from "../server/app";
 import { registerRoutes } from "../server/routes";
 import { initializeFirebaseAdmin } from "../server/firebaseAdmin";
 import path from "path";
 import fs from "fs";
+import express from "express";
 
-// Create Express app for serverless
-const app = express();
-
-app.use(express.json({
-  verify: (req: any, _res, buf) => {
-    req.rawBody = buf;
-  }
-}));
-app.use(express.urlencoded({ extended: false }));
-
-// Initialize Firebase Admin
-try {
-  initializeFirebaseAdmin();
-  console.log("Firebase Admin SDK initialized");
-} catch (error) {
-  console.error("Firebase Admin initialization failed:", error);
-}
-
-// Register API routes
+// Initialize once
 let initialized = false;
 async function initializeApp() {
   if (!initialized) {
+    // Initialize Firebase Admin
+    try {
+      initializeFirebaseAdmin();
+      console.log("Firebase Admin SDK initialized");
+    } catch (error) {
+      console.error("Firebase Admin initialization failed:", error);
+    }
+
+    // Register API routes (ignore the returned server)
     await registerRoutes(app);
 
     // Serve static files
-    const distPath = path.resolve(process.cwd(), "dist/public");
+    const distPath = path.join(__dirname, "../dist/public");
     if (fs.existsSync(distPath)) {
       app.use(express.static(distPath));
       app.use("*", (_req, res) => {
-        res.sendFile(path.resolve(distPath, "index.html"));
+        res.sendFile(path.join(distPath, "index.html"));
       });
     }
 
