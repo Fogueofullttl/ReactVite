@@ -5,15 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Trophy, Upload, Loader2 } from "lucide-react";
+import { Trophy, Loader2 } from "lucide-react";
 import { Link } from "wouter";
-import { SiGoogle } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase";
-import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { createUserProfile } from "@/lib/firebaseHelpers";
-import { googleProvider } from "@/lib/firebase";
 
 export default function Register() {
   const [, setLocation] = useLocation();
@@ -120,67 +114,6 @@ export default function Register() {
     }
   };
 
-  const handleGoogleRegister = async () => {
-    setIsLoading(true);
-    
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      
-      // Extraer nombre y apellido del displayName
-      const nameParts = user.displayName?.split(" ") || ["Usuario", "Google"];
-      const firstName = nameParts[0];
-      const lastName = nameParts.slice(1).join(" ") || nameParts[0];
-      
-      // TODO: Implementar flujo para capturar año de nacimiento real después del registro
-      // Por ahora usar valor predeterminado para no bloquear el registro con Google
-      const currentYear = new Date().getFullYear();
-      const defaultBirthYear = currentYear - 25; // Edad predeterminada 25 años
-      
-      // Crear o obtener perfil en Firestore
-      const userProfile = await createUserProfile(user.uid, {
-        email: user.email!,
-        firstName,
-        lastName,
-        birthYear: defaultBirthYear,
-        photoURL: user.photoURL || undefined,
-      });
-
-      toast({
-        title: "¡Bienvenido!",
-        description: userProfile.memberNumber.startsWith('PRTTM') 
-          ? `Tu número de miembro es: ${userProfile.memberNumber}`
-          : "Has iniciado sesión exitosamente",
-      });
-
-      // Redirigir al dashboard
-      setTimeout(() => {
-        setLocation("/");
-      }, 2000);
-
-    } catch (error: any) {
-      console.error("Error en registro con Google:", error);
-      
-      let errorMessage = "Ocurrió un error durante el registro con Google";
-      
-      if (error.code === "auth/popup-closed-by-user") {
-        errorMessage = "Registro cancelado";
-      } else if (error.code === "auth/account-exists-with-different-credential") {
-        errorMessage = "Ya existe una cuenta con este correo electrónico";
-      } else if (error.code === "auth/cancelled-popup-request") {
-        errorMessage = "Registro cancelado";
-      }
-      
-      toast({
-        title: "Error en Registro",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -219,26 +152,6 @@ export default function Register() {
           <CardDescription>Únete a la Federación Puertorriqueña de Tenis de Mesa</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleGoogleRegister}
-            disabled={isLoading}
-            data-testid="button-google-register"
-          >
-            <SiGoogle className="mr-2 h-4 w-4" />
-            Continuar con Google
-          </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <Separator />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">O regístrate con email</span>
-            </div>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
