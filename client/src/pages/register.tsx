@@ -75,25 +75,31 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      // Crear cuenta en Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        formData.email,
-        formData.password
-      );
-
-      // Crear perfil en Firestore
-      const userProfile = await createUserProfile(userCredential.user.uid, {
-        email: formData.email,
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        birthYear: parseInt(formData.birthYear),
-        club: formData.club.trim(),
+      // Call server-side registration endpoint
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
+          birthYear: formData.birthYear,
+          club: formData.club.trim(),
+        }),
       });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Error en registro");
+      }
 
       toast({
         title: "¡Registro Exitoso!",
-        description: `Tu número de miembro es: ${userProfile.memberNumber}`,
+        description: `Tu número de miembro es: ${data.user.memberNumber}`,
       });
 
       // Redirigir al login
@@ -103,20 +109,10 @@ export default function Register() {
 
     } catch (error: any) {
       console.error("Error en registro:", error);
-      
-      let errorMessage = "Ocurrió un error durante el registro";
-      
-      if (error.code === "auth/email-already-in-use") {
-        errorMessage = "Este correo electrónico ya está registrado";
-      } else if (error.code === "auth/invalid-email") {
-        errorMessage = "Correo electrónico inválido";
-      } else if (error.code === "auth/weak-password") {
-        errorMessage = "La contraseña es muy débil";
-      }
-      
+
       toast({
         title: "Error en Registro",
-        description: errorMessage,
+        description: error.message || "Ocurrió un error durante el registro",
         variant: "destructive",
       });
     } finally {

@@ -9,6 +9,7 @@ import {
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { log } from "./app";
+import { getAuth, getFirestore } from "./firebaseAdmin";
 
 // Error handling helper
 function handleError(error: unknown, defaultMessage: string): { status: number; message: string; details?: unknown } {
@@ -39,6 +40,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // User registration endpoint (uses Firebase Admin SDK)
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { email, password, firstName, lastName, birthYear, club, photoURL } = req.body;
+
+      // Validation
+      if (!email || !password || !firstName || !lastName || !birthYear) {
+        return res.status(400).json({
+          error: "Missing required fields: email, password, firstName, lastName, birthYear"
+        });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({
+          error: "Password must be at least 6 characters"
+        });
+      }
+
+      const auth = getAuth();
+      const firestore = getFirestore();
+
+      // Create user in Firebase Authentication
+      const userRecord = await auth.createUser({
+        email,
+        password,
+        displayName: `${firstName} ${lastName}`,
+        photoURL: photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firstName}`,
+      });
+
+      // Generate member number using Firestore transaction
+      const counterRef = firestore.collection('counters').doc('memberNumbers');
+
+      const memberNumber = await firestore.runTransaction(async (transaction) => {
+        const counterDoc = await transaction.get(counterRef);
+
+        let current = 0;
+        if (counterDoc.exists) {
+          current = counterDoc.data()?.current || 0;
+        }
+
+        const next = current + 1;
+        transaction.set(counterRef, { current: next });
+
+        return `PRTTM-${next.toString().padStart(6, '0')}`;
+      });
+
+      // Create user profile in Firestore
+      const now = new Date();
+      const userProfile = {
+        uid: userRecord.uid,
+        firebaseUid: userRecord.uid,
+        email,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        displayName: `${firstName.trim()} ${lastName.trim()}`,
+        memberNumber,
+        birthYear: parseInt(birthYear),
+        club: club?.trim() || "",
+        role: 'jugador',
+        rating: 1000,
+        photoURL: userRecord.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firstName}`,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+
+      await firestore.collection('users').doc(userRecord.uid).set(userProfile);
+
+      log(`User registered: ${email} (${memberNumber})`, "auth");
+
+      res.status(201).json({
+        success: true,
+        user: {
+          uid: userRecord.uid,
+          email: userProfile.email,
+          displayName: userProfile.displayName,
+          memberNumber: userProfile.memberNumber,
+          role: userProfile.role,
+        },
+      });
+    } catch (error: any) {
+      log(`Registration error: ${error.message}`, "auth");
+
+      // Handle Firebase Auth errors
+      if (error.code === 'auth/email-already-exists') {
+        return res.status(400).json({ error: "Este correo electrónico ya está registrado" });
+      } else if (error.code === 'auth/invalid-email') {
+        return res.status(400).json({ error: "Correo electrónico inválido" });
+      } else if (error.code === 'auth/weak-password') {
+        return res.status(400).json({ error: "La contraseña es muy débil" });
+      }
+
+      const { status, message } = handleError(error, "Failed to register user");
+      res.status(status).json({ error: message });
+    }
   });
 
   // User routes
