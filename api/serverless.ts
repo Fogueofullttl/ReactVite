@@ -1,9 +1,6 @@
 import { app } from "../server/app";
 import { registerRoutes } from "../server/routes";
 import { initializeFirebaseAdmin } from "../server/firebaseAdmin";
-import path from "path";
-import fs from "fs";
-import express from "express";
 
 // Initialize once
 let initialized = false;
@@ -17,19 +14,11 @@ async function initializeApp() {
       console.error("Firebase Admin initialization failed:", error);
     }
 
-    // Register API routes (ignore the returned server)
+    // Register API routes (ignore the returned server, we don't need it for serverless)
     await registerRoutes(app);
 
-    // Serve static files
-    const distPath = path.join(__dirname, "../dist/public");
-    if (fs.existsSync(distPath)) {
-      app.use(express.static(distPath));
-      app.use("*", (_req, res) => {
-        res.sendFile(path.join(distPath, "index.html"));
-      });
-    }
-
     initialized = true;
+    console.log("Serverless function initialized successfully");
   }
 }
 
